@@ -1,0 +1,42 @@
+# Starts the whole backend with one command:  docker compose up -d --build
+# Two containers ("services") that can talk to each other by name.
+
+services:
+  # The database. Uses the official PostgreSQL image, so there's nothing to build.
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: calendar
+      POSTGRES_USER: calendar
+      # Read from the .env file. Compose refuses to start if it's missing.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the .env file}
+    volumes:
+      # Keeps the data when the container is deleted or updated.
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # "Is the database ready to accept connections yet?"
+      test: ["CMD-SHELL", "pg_isready -U calendar -d calendar"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # No "ports:" on purpose: the database is only reachable from inside Docker,
+    # never from your network or the internet.
+
+  # Our Express API. Built from the Dockerfile in ./api
+  api:
+    build: ./api
+    restart: unless-stopped
+    environment:
+      # "db" is the service name above; Docker turns it into the database's address.
+      DATABASE_URL: postgres://calendar:${POSTGRES_PASSWORD}@db:5432/calendar
+      PORT: 3000
+    ports:
+      # server port : container port. Lets you test from your Mac on the home network.
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy   # wait until the database is actually ready
+
+volumes:
+  db-data:

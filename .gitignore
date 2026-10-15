@@ -1,0 +1,9 @@
+# Secrets
+.env
+# Installed packages (recreated by npm install)
+node_modules/
+# Saved schedule pages contain personal info
+*.html
+!web/**/*.html
+# Mac junk
+.DS_Store
