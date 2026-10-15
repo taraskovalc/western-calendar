@@ -1,6 +1,10 @@
 // Entry point of the API: creates the Express app and starts listening.
 import express from 'express';
 import { pool } from './db.js';
+import { migrate } from './migrate.js';
+
+// Bring the database up to date before accepting any requests.
+await migrate();
 
 const app = express();
 

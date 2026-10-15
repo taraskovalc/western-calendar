@@ -11,6 +11,7 @@ RUN npm install --omit=dev
 
 # Then copy our code.
 COPY src ./src
+COPY migrations ./migrations
 
 # Don't run as the all-powerful root user inside the container.
 USER node
