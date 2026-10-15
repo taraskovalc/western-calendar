@@ -1,0 +1,22 @@
+[
+  {
+    "subject": "COMPSCI", "number": "1000A", "component": "LEC", "section": "001",
+    "title": "Example Course One", "classNbr": "10001", "instructor": "Staff", "delivery": "In Person",
+    "meetings": [{ "days": ["M", "W"], "start": "10:30", "end": "11:30", "room": "MC-110" }]
+  },
+  {
+    "subject": "COMPSCI", "number": "1000A", "component": "LAB", "section": "005",
+    "title": "Example Course One", "classNbr": "10002", "instructor": "Staff", "delivery": "In Person",
+    "meetings": [{ "days": ["Th"], "start": "13:30", "end": "15:30", "room": "MC-235" }]
+  },
+  {
+    "subject": "MATH", "number": "2000B", "component": "LEC", "section": "002",
+    "title": "Example Course Two", "classNbr": "10003", "instructor": "Staff", "delivery": "In Person",
+    "meetings": [{ "days": ["Tu", "Th"], "start": "08:30", "end": "09:30", "room": "NSC-1" }]
+  },
+  {
+    "subject": "WRITING", "number": "1000G", "component": "LEC", "section": "650",
+    "title": "Example Online Course", "classNbr": "10004", "instructor": "Staff", "delivery": "Distance Studies/Online",
+    "meetings": [{ "days": [], "start": null, "end": null, "room": "" }]
+  }
+]

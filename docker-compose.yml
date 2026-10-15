@@ -25,7 +25,10 @@ services:
 
   # Our Express API. Built from the Dockerfile in ./api
   api:
-    build: ./api
+    build:
+      # Build from the project root (not ./api) so the image can also include shared/
+      context: .
+      dockerfile: api/Dockerfile
     restart: unless-stopped
     environment:
       # "db" is the service name above; Docker turns it into the database's address.

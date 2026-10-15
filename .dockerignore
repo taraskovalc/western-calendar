@@ -1,0 +1,6 @@
+# Never send these into the Docker build
+.git
+.env
+**/node_modules
+*.html
+web
