@@ -4,7 +4,7 @@
 import { readSchedule, ScheduleReadError } from './parser.js';
 import { buildCalendar, seasonsFor } from '../shared/ics.js';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
-import { api, ApiUnavailable } from './api.js';
+import { api, API_URL, ApiUnavailable } from './api.js';
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;  // real schedule pages are ~70 KB
 const VIEWS = ['cover', 'welcome', 'app', 'schedule', 'done'];
@@ -24,6 +24,10 @@ const state = {
   tab: 'fall',
   colourOf: new Map(),
   lastDownload: null,
+  scheduleId: null,    // the saved schedule being worked on (signed-in users)
+  scheduleName: null,
+  saveResult: null,    // { ok, message } after saving to the account
+  feed: null,          // { url, webcalUrl } once a calendar link exists
 };
 
 /* ================= helpers ================= */
@@ -123,22 +127,37 @@ applyTheme(currentTheme());
 function renderWelcome() {
   $('#signed-in').hidden = !state.user;
   $('#account-forms').hidden = Boolean(state.user);
-  if (state.user) $('#signed-in-email').textContent = state.user.email;
+  if (state.user) {
+    $('#signed-in-email').textContent = state.user.email;
+    loadMySchedules();
+  }
+}
+
+// Clears everything about the current user (after signing out or deleting the account).
+function signedOut() {
+  Object.assign(state, { user: null, scheduleId: null, scheduleName: null, saveResult: null, feed: null });
+  cacheTheme(null);
+  renderAccountChip();
+  $('#tab-signin')?.click(); // next visit to the welcome page starts on "Sign in"
+}
+
+function welcomeMessage(text) {
+  $('#oauth-error').textContent = text;
 }
 
 function renderAccountChip() {
   const chip = $('#account-chip');
   chip.hidden = !state.user;
   if (!state.user) return;
-  const signOut = el('button', { text: 'Sign out', attrs: { type: 'button' } });
+  const account = el('button', { className: 'chip-link', text: 'Account', attrs: { type: 'button' } });
+  account.addEventListener('click', openAccountDialog);
+  const signOut = el('button', { className: 'chip-link', text: 'Sign out', attrs: { type: 'button' } });
   signOut.addEventListener('click', async () => {
     try { await api('/auth/logout', { method: 'POST' }); } catch { /* signed out locally anyway */ }
-    state.user = null;
-    cacheTheme(null);
-    renderAccountChip();
+    signedOut();
     show('welcome');
   });
-  chip.replaceChildren(el('span', { text: `Signed in as ${state.user.displayName || state.user.email}` }), signOut);
+  chip.replaceChildren(el('span', { text: `Signed in as ${state.user.displayName || state.user.email}` }), account, signOut);
 }
 
 // Sign in / Create account tabs
@@ -159,14 +178,11 @@ async function submitAccount(form, path) {
   status.textContent = path === '/auth/login' ? 'Signing in…' : 'Creating your account…';
   try {
     const { user } = await api(path, { method: 'POST', body });
-    state.user = user;
-    state.started = true;
-    applyTheme(user.theme ?? 'light');
-    cacheTheme(user.theme ?? 'light');
+    signedIn(user);
     form.reset();
     status.textContent = '';
-    renderAccountChip();
-    show('app');
+    // Returning users see their saved schedules first; new accounts go straight on.
+    show(path === '/auth/login' ? 'welcome' : 'app');
   } catch (err) {
     status.textContent = err instanceof ApiUnavailable
       ? "Accounts aren't available right now. You can still continue without an account; nothing about the calendar file changes."
@@ -176,8 +192,21 @@ async function submitAccount(form, path) {
 $('#form-signin').addEventListener('submit', event => { event.preventDefault(); submitAccount(event.currentTarget, '/auth/login'); });
 $('#form-register').addEventListener('submit', event => { event.preventDefault(); submitAccount(event.currentTarget, '/auth/register'); });
 
+function signedIn(user) {
+  state.user = user;
+  state.started = true;
+  applyTheme(user.theme ?? 'light');
+  cacheTheme(user.theme ?? 'light');
+  welcomeMessage('');
+  renderAccountChip();
+}
+
 $('#continue-guest').addEventListener('click', () => { state.started = true; show('app'); });
-$('#continue-user').addEventListener('click', () => { state.started = true; show('app'); });
+$('#continue-user').addEventListener('click', () => {
+  state.started = true;
+  resetSchedulePage();
+  show(state.app ? 'schedule' : 'app');
+});
 
 /* ================= 2. calendar app ================= */
 
@@ -211,6 +240,17 @@ function updateReminderOption() {
   }
 })();
 
+// Back to an empty schedule page (for "Start a new schedule").
+function resetSchedulePage() {
+  Object.assign(state, { courses: [], scheduleId: null, scheduleName: null, lastDownload: null, feed: null, saveResult: null });
+  $('#check-part').hidden = true;
+  $('#dropzone').classList.remove('loaded');
+  $('.drop-title').replaceChildren('Drag the file here, or ', el('u', { text: 'click to choose it' }));
+  $('.drop-detail').textContent = 'The University of Western Ontario.html';
+  document.querySelectorAll('#guide input').forEach(box => { box.checked = false; });
+  setStatus('', '');
+}
+
 function setStatus(message, kind) {
   const status = $('#read-status');
   status.className = `status ${kind}`;
@@ -239,7 +279,7 @@ async function handleFile(file) {
   }
 
   const year = result.academicYear && TERM_DATES[result.academicYear] ? result.academicYear : LATEST_YEAR;
-  Object.assign(state, { courses: result.courses, academicYear: year, terms: TERM_DATES[year], lastDownload: null });
+  Object.assign(state, { courses: result.courses, academicYear: year, terms: TERM_DATES[year], lastDownload: null, saveResult: null });
   const notes = [...result.notes];
   if (result.academicYear && !TERM_DATES[result.academicYear]) {
     notes.push(`Your file is for ${result.academicYear}, but only ${LATEST_YEAR} dates are available, so ${LATEST_YEAR} dates are used.`);
@@ -250,7 +290,9 @@ async function handleFile(file) {
   $('#dropzone').classList.add('loaded');
   $('.drop-title').textContent = `Loaded: ${file.name}`;
   $('.drop-detail').textContent = 'Drop a different file here to replace it.';
-  setStatus(`Got it. Found ${plural(state.courses.length, 'class entry', 'class entries')} for ${year}. Check them below.`, 'ok');
+  setStatus(state.scheduleId
+    ? `Got it. Found ${plural(state.courses.length, 'class entry', 'class entries')}. These will replace the classes in “${state.scheduleName}” when you download.`
+    : `Got it. Found ${plural(state.courses.length, 'class entry', 'class entries')} for ${year}. Check them below.`, 'ok');
 
   renderCheck(notes);
   $('#check-part').hidden = false;
@@ -405,7 +447,11 @@ function downloadCalendar() {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
   state.lastDownload = { include, alarmMinutes, filename };
 }
-$('#download').addEventListener('click', () => { downloadCalendar(); show('done'); });
+$('#download').addEventListener('click', () => {
+  downloadCalendar();
+  show('done');
+  if (state.user) saveToAccount();
+});
 $('#download-again').addEventListener('click', downloadCalendar);
 
 /* ================= 4. done ================= */
@@ -445,7 +491,8 @@ function renderDone() {
     $('#next-what').textContent = `${courseKey(next.course)} ${next.course.component}${next.course.title ? `, ${next.course.title}` : ''}${next.meeting.room ? ` · ${next.meeting.room}` : ''}`;
   }
 
-  $('#howto-title').textContent = `Add it to ${APP_NAMES[state.app]}`;
+  renderAccountDone();
+  $('#howto-title').textContent = state.user ? `Or add the file to ${APP_NAMES[state.app]}` : `Add it to ${APP_NAMES[state.app]}`;
   for (const name of ['apple', 'google', 'outlook', 'other']) $(`#howto-${name}`).hidden = name !== state.app;
   throwConfetti();
 }
@@ -467,15 +514,325 @@ function throwConfetti() {
   setTimeout(() => box.replaceChildren(), 3500);
 }
 
+/* ================= accounts: saved schedules ================= */
+
+const fmtDate = iso => new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
+
+async function loadMySchedules() {
+  const status = $('#my-status');
+  status.textContent = '';
+  let schedules;
+  try {
+    ({ schedules } = await api('/schedules'));
+  } catch {
+    $('#my-schedules').hidden = true;
+    return;
+  }
+  $('#my-schedules').hidden = schedules.length === 0;
+  $('#my-list').replaceChildren(...schedules.map(schedule => {
+    const open = el('button', { className: 'button-ink', text: 'Open', attrs: { type: 'button' } });
+    open.addEventListener('click', () => openSavedSchedule(schedule.id));
+    const remove = el('button', { className: 'link-button my-delete', text: 'Delete', attrs: { type: 'button' } });
+    remove.addEventListener('click', () => confirmThen(remove, 'Click again to delete', async () => {
+      try {
+        await api(`/schedules/${schedule.id}`, { method: 'DELETE' });
+        if (state.scheduleId === schedule.id) resetSchedulePage();
+        loadMySchedules();
+      } catch (err) {
+        status.textContent = err.message;
+      }
+    }));
+    return el('li', { className: 'my-item' }, [
+      el('span', { className: 'my-name', text: schedule.name }),
+      el('span', { className: 'my-meta', text: `${plural(schedule.courseCount, 'class entry', 'class entries')} · updated ${fmtDate(schedule.updatedAt)}` }),
+      el('span', { className: 'my-actions' }, [open, remove]),
+    ]);
+  }));
+}
+
+// A button that needs a second click to confirm (no pop-up windows).
+function confirmThen(button, confirmText, action) {
+  if (button.dataset.armed) {
+    delete button.dataset.armed;
+    action();
+    return;
+  }
+  const original = button.textContent;
+  button.dataset.armed = '1';
+  button.textContent = confirmText;
+  button.classList.add('confirm');
+  setTimeout(() => {
+    if (!button.dataset.armed) return;
+    delete button.dataset.armed;
+    button.textContent = original;
+    button.classList.remove('confirm');
+  }, 4000);
+}
+
+async function openSavedSchedule(id) {
+  const status = $('#my-status');
+  status.textContent = 'Opening…';
+  let schedule;
+  try {
+    ({ schedule } = await api(`/schedules/${id}`));
+  } catch (err) {
+    status.textContent = err.message;
+    return;
+  }
+  status.textContent = '';
+  const year = TERM_DATES[schedule.academicYear] ? schedule.academicYear : LATEST_YEAR;
+  Object.assign(state, {
+    started: true,
+    courses: schedule.courses,
+    academicYear: year,
+    terms: TERM_DATES[year],
+    scheduleId: schedule.id,
+    scheduleName: schedule.name,
+    lastDownload: null,
+    saveResult: null,
+    feed: null,
+  });
+  // Bring back the settings saved with it.
+  const include = document.querySelector(`input[name="include"][value="${schedule.includeTerms}"]`);
+  if (include) include.checked = true;
+  if ([...$('#alarm').options].some(o => o.value === String(schedule.alarmMinutes))) $('#alarm').value = String(schedule.alarmMinutes);
+  if (schedule.calendarApp) {
+    state.app = schedule.calendarApp;
+    const radio = document.querySelector(`input[name="app"][value="${schedule.calendarApp}"]`);
+    if (radio) { radio.checked = true; $('#app-next').disabled = false; }
+    updateReminderOption();
+  }
+
+  document.querySelectorAll('#guide input').forEach(box => { box.checked = true; });
+  $('#dropzone').classList.remove('loaded');
+  $('.drop-title').replaceChildren('To replace these classes, drag in a new file or ', el('u', { text: 'choose it' }));
+  $('.drop-detail').textContent = 'The University of Western Ontario.html';
+  setStatus(`Opened “${schedule.name}” from your account. Check the classes below, then download to update your calendar.`, 'ok');
+  renderCheck([]);
+  $('#check-part').hidden = false;
+  updateDownloadDetail();
+  show(state.app ? 'schedule' : 'app');
+}
+
+/* ================= accounts: saving + calendar link ================= */
+
+async function saveToAccount() {
+  const body = {
+    name: state.scheduleName ?? `Fall/Winter ${state.academicYear}`,
+    academicYear: state.academicYear,
+    courses: state.courses,
+    includeTerms: state.lastDownload.include,
+    alarmMinutes: state.lastDownload.alarmMinutes,
+    calendarApp: state.app,
+  };
+  state.saveResult = { pending: true };
+  renderAccountDone();
+  try {
+    const { schedule } = state.scheduleId
+      ? await api(`/schedules/${state.scheduleId}`, { method: 'PATCH', body })
+      : await api('/schedules', { method: 'POST', body });
+    Object.assign(state, { scheduleId: schedule.id, scheduleName: schedule.name });
+    state.saveResult = { ok: true };
+    const { feed } = await api(`/schedules/${schedule.id}/feed`);
+    state.feed = feed;
+  } catch (err) {
+    state.saveResult = { ok: false, message: err instanceof ApiUnavailable ? "Your account isn't reachable right now, so this schedule wasn't saved. Your downloaded file still works." : err.message };
+  }
+  renderAccountDone();
+}
+
+function renderAccountDone() {
+  const signedIn = Boolean(state.user);
+  $('#account-done').hidden = !signedIn;
+  $('#guest-note').hidden = signedIn;
+  $('#check-note').textContent = signedIn
+    ? 'Something not right? Compare a few classes with DraftMySchedule. If your schedule changes, open it from page 1 and add the new file: a subscribed calendar updates by itself.'
+    : 'Something not right? Compare a few classes with DraftMySchedule. If your schedule changes later, come back and make a new file.';
+  if (!signedIn) return;
+
+  const note = $('#saved-note');
+  const result = state.saveResult;
+  note.classList.toggle('warn', Boolean(result && result.ok === false));
+  note.textContent = !result || result.pending ? 'Saving to your account…'
+    : result.ok ? `✓ Saved to your account as “${state.scheduleName}”`
+    : result.message;
+  $('#feed-card').hidden = !result?.ok;
+
+  $('#feed-off').hidden = Boolean(state.feed);
+  $('#feed-on').hidden = !state.feed;
+  if (state.feed) {
+    $('#feed-url').value = state.feed.url;
+    $('#feed-apple-open').href = state.feed.webcalUrl;
+    for (const name of ['apple', 'google', 'outlook', 'other']) $(`#feed-steps-${name}`).hidden = name !== state.app;
+  }
+}
+
+async function feedAction(path, method, doneMessage) {
+  const status = $('#feed-status');
+  status.textContent = '';
+  try {
+    const result = await api(`/schedules/${state.scheduleId}/${path}`, { method });
+    state.feed = result?.feed ?? null;
+    renderAccountDone();
+    status.textContent = doneMessage;
+  } catch (err) {
+    status.textContent = err.message;
+  }
+}
+$('#feed-create').addEventListener('click', () => feedAction('feed', 'POST', 'Your link is ready. Copy it, then follow the steps above.'));
+$('#feed-reset').addEventListener('click', event => confirmThen(event.currentTarget, 'Click again: the old link will stop working',
+  () => feedAction('feed/reset', 'POST', 'New link made. The old one no longer works, so subscribe again with this one.')));
+$('#feed-delete').addEventListener('click', event => confirmThen(event.currentTarget, 'Click again to turn it off',
+  () => feedAction('feed', 'DELETE', 'Link turned off. Calendars subscribed to it will stop updating.')));
+$('#feed-copy').addEventListener('click', async () => {
+  const button = $('#feed-copy');
+  try {
+    await navigator.clipboard.writeText($('#feed-url').value);
+    button.textContent = 'Copied ✓';
+  } catch {
+    $('#feed-url').select();
+    button.textContent = 'Press ⌘/Ctrl + C';
+  }
+  setTimeout(() => { button.textContent = 'Copy'; }, 2500);
+});
+
+/* ================= dialogs: privacy, account, passwords ================= */
+
+document.querySelectorAll('[data-open="privacy"]').forEach(button => button.addEventListener('click', () => {
+  document.querySelectorAll('dialog[open]').forEach(d => d.close());
+  $('#dialog-privacy').showModal();
+}));
+// Clicking the dark area around a dialog closes it.
+document.querySelectorAll('.paper-dialog').forEach(dialog => dialog.addEventListener('click', event => {
+  if (event.target === dialog) dialog.close();
+}));
+
+function formStatus(form, text) {
+  form.querySelector('.form-status').textContent = text;
+}
+
+function openAccountDialog() {
+  if (!state.user) return;
+  $('#account-email').textContent = state.user.email;
+  const form = $('#delete-form');
+  form.reset();
+  formStatus(form, '');
+  // Accounts made with Google/Microsoft have no password to type.
+  $('#delete-password-label').hidden = state.user.hasPassword === false;
+  $('#dialog-account').showModal();
+}
+
+$('#delete-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector('button[type="submit"]');
+  const password = form.elements.password.value;
+  if (state.user.hasPassword !== false && !password) return formStatus(form, 'Type your password to confirm.');
+  button.disabled = true;
+  formStatus(form, 'Deleting…');
+  try {
+    await api('/auth/account', { method: 'DELETE', body: state.user.hasPassword === false ? {} : { password } });
+    $('#dialog-account').close();
+    signedOut();
+    resetSchedulePage();
+    state.started = false;
+    welcomeMessage('Your account and everything saved in it has been deleted.');
+    show('welcome');
+  } catch (err) {
+    formStatus(form, err.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$('#forgot-open').addEventListener('click', () => {
+  const form = $('#forgot-form');
+  form.reset();
+  formStatus(form, '');
+  form.elements.email.value = $('#form-signin').elements.email.value;
+  $('#dialog-forgot').showModal();
+});
+$('#forgot-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  formStatus(form, 'Sending…');
+  try {
+    await api('/auth/forgot', { method: 'POST', body: { email: form.elements.email.value } });
+    formStatus(form, "If that email has a Slotted account, a reset link is on its way. Check your spam folder too. The link works for one hour.");
+  } catch (err) {
+    formStatus(form, err instanceof ApiUnavailable ? "Accounts aren't available right now. Please try again later." : err.message);
+  }
+});
+
+function openResetDialog(token) {
+  const form = $('#reset-form');
+  form.dataset.token = token;
+  $('#dialog-reset').showModal();
+}
+$('#reset-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  formStatus(form, 'Saving…');
+  try {
+    const { user } = await api('/auth/reset', { method: 'POST', body: { token: form.dataset.token, password: form.elements.password.value } });
+    $('#dialog-reset').close();
+    signedIn(user);
+    show('welcome');
+  } catch (err) {
+    formStatus(form, err.message);
+  }
+});
+
 /* ================= start ================= */
+
+// Things that arrive in the address bar: a password-reset link, or the return
+// from Google/Microsoft sign-in. Read them, then remove them from the address
+// so they don't stay in the browser history.
+const params = new URLSearchParams(location.search);
+const resetToken = params.get('reset');
+const returnedFromSignIn = params.get('signed_in') === '1';
+const signInError = params.get('signin_error');
+if (location.search) history.replaceState(null, '', location.pathname + location.hash);
+
+const SIGN_IN_ERRORS = {
+  cancelled: 'Sign-in was cancelled.',
+  expired: 'That sign-in took too long or was interrupted. Please try again.',
+  email_taken: 'An account with that email already exists. Sign in with your email and password instead.',
+  no_email: "That account didn't share an email address, so Slotted can't create an account with it.",
+  unavailable: "That sign-in option isn't available right now.",
+  failed: 'Something went wrong signing in. Please try again.',
+};
+if (signInError) {
+  welcomeMessage(SIGN_IN_ERRORS[signInError] ?? SIGN_IN_ERRORS.failed);
+  state.started = false;
+}
 
 // Already signed in from an earlier visit? (Fails quietly if accounts are offline.)
 api('/auth/me').then(({ user }) => {
-  state.user = user;
-  if (user) { applyTheme(user.theme ?? 'light'); cacheTheme(user.theme ?? 'light'); }
-  else { cacheTheme(null); applyTheme('light'); }
-  renderAccountChip();
+  if (user) {
+    signedIn(user);
+    state.started = returnedFromSignIn || state.started;
+    if (returnedFromSignIn) show('welcome');
+  } else {
+    state.user = null;
+    cacheTheme(null);
+    applyTheme('light');
+    renderAccountChip();
+  }
   renderWelcome();
 }).catch(() => {});
+
+// Show "Continue with Google / Microsoft" only for the ones set up on the server.
+api('/auth/providers').then(providers => {
+  for (const name of ['google', 'microsoft']) {
+    const link = $(`#oauth-${name}`);
+    link.hidden = !providers?.[name];
+    link.href = `${API_URL}/auth/${name}/start`;
+  }
+  $('#oauth-buttons').hidden = !providers?.google && !providers?.microsoft;
+}).catch(() => {});
+
+if (resetToken) openResetDialog(resetToken);
+if (signInError) show('welcome', { push: false });
 
 show(location.hash.slice(1) || 'cover', { push: false });

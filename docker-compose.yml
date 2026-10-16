@@ -1,5 +1,5 @@
 # Starts the whole backend with one command:  docker compose up -d --build
-# Three containers ("services") that can talk to each other by name.
+# Four containers ("services") that can talk to each other by name.
 
 services:
   # The database. Uses the official PostgreSQL image, so there's nothing to build.
@@ -38,6 +38,15 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3000}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      SITE_URL: ${SITE_URL:-https://slotted.taraskoval.ca}
+      # Optional: email for "Forgot your password?" (see README.md)
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      # Optional: "Continue with Google / Microsoft" (see README.md)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
     ports:
       # Only reachable from the server itself (for curl tests). Everyone else
       # comes in through the Cloudflare tunnel below, never straight to port 3000.
@@ -57,6 +66,25 @@ services:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in the .env file}
     depends_on:
       - api
+
+  # Nightly database backups into /srv/backups/western-calendar on the server.
+  # Uses the same PostgreSQL image, which includes the pg_dump tool.
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/ops/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: calendar
+      PGDATABASE: calendar
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      KEEP_DAYS: 14
+    volumes:
+      - ./ops:/ops:ro
+      - ${BACKUP_DIR:-/srv/backups/western-calendar}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   db-data:

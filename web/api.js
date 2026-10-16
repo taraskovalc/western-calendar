@@ -1,6 +1,6 @@
 // Talking to the Slotted API (accounts). Everything else on the page works
 // without it, so every failure here is handled gracefully.
-const API_URL = 'https://api.taraskoval.ca';
+export const API_URL = 'https://api.taraskoval.ca';
 
 export class ApiUnavailable extends Error {}
 export class ApiError extends Error {

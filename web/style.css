@@ -549,3 +549,90 @@ body { background-position: 0 0; }
 #view-welcome h2 { margin-top: 4px; }
 #view-welcome .intro-diagram { margin-top: 28px; }
 #view-welcome .intro-why { margin: 22px auto 40px; }
+
+/* ===================== accounts: saved schedules, links, dialogs ===================== */
+.link-button { border: 0; padding: 0; background: none; font: inherit; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.forgot-link { justify-self: center; font-size: 14px; }
+.privacy-link-row { text-align: center; margin-top: 14px; font-size: 14px; }
+
+/* Continue with Google / Microsoft */
+.oauth-buttons { display: grid; gap: 10px; margin-bottom: 4px; }
+.oauth { width: 100%; text-decoration: none; }
+.oauth-icon { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--paper-2); font: 700 14px/1 var(--sans); color: var(--accent-ink); }
+.oauth-icon.ms { grid-template-columns: 1fr 1fr; gap: 2px; width: 18px; height: 18px; border-radius: 0; background: none; }
+.oauth-icon.ms i { width: 8px; height: 8px; }
+.oauth-icon.ms i:nth-child(1) { background: #f25022; } .oauth-icon.ms i:nth-child(2) { background: #7fba00; }
+.oauth-icon.ms i:nth-child(3) { background: #00a4ef; } .oauth-icon.ms i:nth-child(4) { background: #ffb900; }
+.oauth-error:empty { display: none; }
+.oauth-error { margin-bottom: 12px; text-align: center; }
+
+/* Your saved schedules */
+.my-title { font-size: 20px; text-align: center; margin: 4px 0 4px; }
+.my-hint { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+.my-list { list-style: none; padding: 0; margin: 0 0 18px; display: grid; gap: 10px; }
+.my-item {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 12px 14px;
+  background: var(--c0); border-top: 3px solid var(--e0); border-radius: 2px; box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+}
+.my-item:nth-child(3n+2) { background: var(--c2); border-top-color: var(--e2); }
+.my-item:nth-child(3n+3) { background: var(--c3); border-top-color: var(--e3); }
+.my-name { font-weight: 600; }
+.my-meta { grid-column: 1; font-size: 13px; color: var(--muted); }
+.my-actions { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 10px; align-items: center; }
+.my-actions .button-ink { padding: 9px 14px; font-size: 14px; }
+.my-delete { font-size: 13px; color: var(--muted); }
+.my-delete.confirm { color: #c0392b; font-weight: 600; }
+#my-status { text-align: center; margin-top: 10px; }
+
+/* done page, signed in */
+.account-done { max-width: 680px; margin: 0 auto 10px; }
+.saved-note { text-align: center; font: 600 24px/1.2 var(--hand); color: var(--done); margin-bottom: 26px; }
+.saved-note.warn { color: var(--accent-ink); }
+.feed-card { padding-top: 34px; }
+.feed-card h3 { font-size: 22px; text-align: center; margin-bottom: 10px; }
+.feed-explain, .feed-warning, .feed-private, .feed-manage-note { color: var(--muted); font-size: 15px; text-align: center; max-width: 56ch; margin: 0 auto 10px; }
+.feed-warning b, .feed-explain b { color: var(--ink); }
+#feed-off { display: grid; justify-items: center; margin-top: 14px; }
+.feed-label { display: block; font-weight: 600; margin: 16px 0 6px; }
+.feed-row { display: flex; gap: 8px; }
+.feed-row input { flex: 1; min-width: 0; font: 14px ui-monospace, 'SF Mono', Menlo, monospace; color: var(--ink); background: var(--paper-2); border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.feed-row .button-plain { padding: 10px 16px; }
+.feed-private { font-size: 13px; margin-top: 8px; }
+.feed-steps { margin: 18px auto 6px; max-width: 56ch; color: var(--muted); }
+div.feed-steps { display: grid; justify-items: center; gap: 10px; text-align: center; }
+ol.feed-steps { padding-left: 22px; display: grid; gap: 6px; }
+.feed-steps b { color: var(--ink); }
+.feed-manage { display: flex; justify-content: center; gap: 10px; margin-top: 18px; font-size: 14px; color: var(--muted); }
+.feed-manage-note { font-size: 13px; }
+#feed-status { text-align: center; margin-top: 10px; }
+.guest-note { text-align: center; color: var(--muted); max-width: 56ch; margin: 0 auto 6px; font-size: 15px; }
+
+/* dialogs (privacy, account, password) */
+.paper-dialog {
+  width: min(600px, calc(100% - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; border: 0; border-radius: 14px;
+  padding: 30px 32px 26px; color: var(--ink); background: var(--noise), var(--paper); box-shadow: 0 30px 80px rgb(0 0 0 / 40%);
+}
+.paper-dialog::backdrop { background: rgb(20 12 6 / 55%); backdrop-filter: blur(3px); }
+.paper-dialog h2 { font-size: 28px; margin: 0 40px 12px 0; }
+.paper-dialog h3 { font-size: 18px; margin: 20px 0 6px; }
+.paper-dialog p, .paper-dialog li { color: var(--muted); font-size: 15px; }
+.paper-dialog b { color: var(--ink); }
+.paper-dialog ul { padding-left: 20px; display: grid; gap: 6px; margin: 0; }
+.paper-dialog .account-form { margin-top: 14px; }
+.dialog-close-form { position: absolute; top: 14px; right: 14px; margin: 0; }
+.dialog-close { border: 0; background: var(--paper-2); color: var(--ink); width: 34px; height: 34px; border-radius: 50%; font-size: 20px; cursor: pointer; }
+.danger-zone { margin-top: 22px; padding: 16px 18px; border: 1.5px dashed #c0392b; border-radius: 10px; }
+.danger-zone h3 { margin-top: 0; color: #c0392b; }
+.button-danger {
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font: 600 15px/1 var(--sans);
+  padding: 12px 18px; border-radius: var(--sketchy); border: 2px solid #8e2a1f; background: #c0392b; color: #fff;
+}
+.button-danger:disabled { opacity: .5; cursor: not-allowed; }
+.account-chip .chip-link { border: 0; background: none; font: inherit; color: var(--desk-ink); text-decoration: underline; cursor: pointer; padding: 0; }
+
+@media (max-width: 760px) {
+  .my-item { grid-template-columns: 1fr; }
+  .my-actions { grid-row: auto; grid-column: 1; justify-content: flex-start; }
+  .feed-row { flex-direction: column; }
+  .account-chip span { display: none; }
+}

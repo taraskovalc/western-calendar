@@ -10,6 +10,7 @@ import { createSessionMiddleware } from './session.js';
 import { authRouter } from './routes/auth.js';
 import { schedulesRouter } from './routes/schedules.js';
 import { feedsRouter } from './routes/feeds.js';
+import { oauthRouter } from './routes/oauth.js';
 import { requireJson } from './require-auth.js';
 import { cors } from './cors.js';
 
@@ -33,6 +34,7 @@ app.use(requireJson);                       // data must be sent as JSON (blocks
 app.use(express.json({ limit: '100kb' }));  // read JSON request bodies; refuse anything huge
 app.use(createSessionMiddleware());         // know who is signed in (from the cookie)
 app.use('/auth', authRouter);               // /auth/register, /auth/login, /auth/logout, /auth/me, /auth/account
+app.use('/auth', oauthRouter);              // /auth/providers, /auth/google/..., /auth/microsoft/...
 app.use('/schedules', schedulesRouter);     // saved schedules (signed-in only)
 app.use('/feeds', feedsRouter);             // public subscription links (the token is the key)
 
