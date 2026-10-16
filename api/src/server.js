@@ -9,6 +9,7 @@ import { buildCalendar } from '../../shared/ics.js';
 import { createSessionMiddleware } from './session.js';
 import { authRouter } from './routes/auth.js';
 import { schedulesRouter } from './routes/schedules.js';
+import { feedsRouter } from './routes/feeds.js';
 import { requireJson } from './require-auth.js';
 
 // Bring the database up to date before accepting any requests.
@@ -23,6 +24,7 @@ app.use(express.json({ limit: '100kb' }));  // read JSON request bodies; refuse 
 app.use(createSessionMiddleware());         // know who is signed in (from the cookie)
 app.use('/auth', authRouter);               // /auth/register, /auth/login, /auth/logout, /auth/me, /auth/account
 app.use('/schedules', schedulesRouter);     // saved schedules (signed-in only)
+app.use('/feeds', feedsRouter);             // public subscription links (the token is the key)
 
 // GET /  ->  proves the API itself is running.
 app.get('/', (req, res) => {

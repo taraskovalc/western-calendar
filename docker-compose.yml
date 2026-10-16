@@ -36,6 +36,7 @@ services:
       PORT: 3000
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in the .env file}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3000}
     ports:
       # server port : container port. Lets you test from your Mac on the home network.
       - "3000:3000"

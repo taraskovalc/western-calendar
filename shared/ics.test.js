@@ -64,3 +64,11 @@ test('the same class always gets the same UID', () => {
   const b = buildCalendar({ courses: [fallClass], terms, now: new Date() }).ics.match(/UID:\S+/)[0];
   assert.equal(a, b);
 });
+
+test('subscriptions get a refresh hint; downloads do not', () => {
+  const feed = buildCalendar({ courses: [fallClass], terms, refreshHours: 6, now: fixedNow }).ics;
+  const file = buildCalendar({ courses: [fallClass], terms, now: fixedNow }).ics;
+  assert.match(feed, /REFRESH-INTERVAL;VALUE=DURATION:PT6H/);
+  assert.match(feed, /X-PUBLISHED-TTL:PT6H/);
+  assert.doesNotMatch(file, /REFRESH-INTERVAL/);
+});

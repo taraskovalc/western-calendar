@@ -112,11 +112,12 @@ export function seasonsFor(courseNumber) {
  * @param {number}   [options.alarmMinutes] 0 = no reminder
  * @param {string}   [options.calendarName]
  * @param {Date}     [options.now]          only used for the DTSTAMP field
+ * @param {number}   [options.refreshHours] for subscriptions: how often apps should re-check
  * @returns {{ ics: string, added: object[], skipped: object[] }}
  */
 export function buildCalendar({
   courses, terms, include = 'both', alarmMinutes = 0,
-  calendarName = 'Western Classes', now = new Date(),
+  calendarName = 'Western Classes', now = new Date(), refreshHours = null,
 }) {
   const termBySeason = Object.fromEntries(terms.map(t => [t.season, t]));
   const stamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
@@ -124,6 +125,9 @@ export function buildCalendar({
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Taras Koval//Western Calendar//EN',
     'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     `X-WR-CALNAME:${escapeText(calendarName)}`, 'X-WR-TIMEZONE:America/Toronto',
+    // Hints for subscribed calendars. Two spellings: the official one, and the
+    // older one that Apple Calendar and Outlook actually read.
+    ...(refreshHours ? [`REFRESH-INTERVAL;VALUE=DURATION:PT${refreshHours}H`, `X-PUBLISHED-TTL:PT${refreshHours}H`] : []),
     ...TIMEZONE,
   ];
   const added = [];

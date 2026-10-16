@@ -1,6 +1,7 @@
 // Saved schedules. Every route here requires being signed in, and every
 // database query includes "AND user_id = <you>", so nobody can ever read or
 // change someone else's schedule, even if they know its ID.
+import crypto from 'node:crypto';
 import express from 'express';
 import { z } from 'zod';
 import { pool } from '../db.js';
@@ -8,6 +9,7 @@ import { validate } from '../validate.js';
 import { requireAuth } from '../require-auth.js';
 import { getTerms } from '../terms.js';
 import { buildCalendar } from '../../../shared/ics.js';
+import { feedLinks } from './feeds.js';
 
 export const schedulesRouter = express.Router();
 schedulesRouter.use(requireAuth);  // the guard runs before every route below
@@ -195,4 +197,55 @@ schedulesRouter.get('/:id/calendar.ics', async (req, res) => {
     calendarName: schedule.name,
   });
   res.type('text/calendar').attachment('western-classes.ics').send(ics);
+});
+
+/* ---------- subscription links ---------- */
+
+// 32 random bytes from the operating system's cryptographic random generator,
+// written in URL-safe base64: 43 characters, 2^256 possibilities. Unguessable.
+const newToken = () => crypto.randomBytes(32).toString('base64url');
+
+const toFeed = row => ({ ...feedLinks(row.token), createdAt: row.created_at, lastFetchedAt: row.last_fetched_at });
+
+// GET /schedules/:id/feed  ->  the current link, or null if there isn't one
+schedulesRouter.get('/:id/feed', async (req, res) => {
+  if (!(await findOwnSchedule(req.params.id, req.userId))) return notFound(res);
+  const { rows } = await pool.query('SELECT * FROM calendar_feeds WHERE schedule_id = $1', [req.params.id]);
+  res.json({ feed: rows[0] ? toFeed(rows[0]) : null });
+});
+
+// POST /schedules/:id/feed  ->  create the link (or return the existing one)
+schedulesRouter.post('/:id/feed', async (req, res) => {
+  if (!(await findOwnSchedule(req.params.id, req.userId))) return notFound(res);
+  // ON CONFLICT DO NOTHING: if this schedule already has a link, keep it.
+  const inserted = await pool.query(
+    `INSERT INTO calendar_feeds (schedule_id, token) VALUES ($1, $2)
+     ON CONFLICT (schedule_id) DO NOTHING
+     RETURNING *`,
+    [req.params.id, newToken()],
+  );
+  if (inserted.rows[0]) return res.status(201).json({ feed: toFeed(inserted.rows[0]) });
+  const { rows } = await pool.query('SELECT * FROM calendar_feeds WHERE schedule_id = $1', [req.params.id]);
+  res.json({ feed: toFeed(rows[0]) });
+});
+
+// POST /schedules/:id/feed/reset  ->  new link; the old one stops working immediately
+schedulesRouter.post('/:id/feed/reset', async (req, res) => {
+  if (!(await findOwnSchedule(req.params.id, req.userId))) return notFound(res);
+  const { rows } = await pool.query(
+    `UPDATE calendar_feeds
+        SET token = $1, created_at = now(), last_fetched_at = NULL
+      WHERE schedule_id = $2
+      RETURNING *`,
+    [newToken(), req.params.id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'This schedule has no subscription link yet' });
+  res.json({ feed: toFeed(rows[0]) });
+});
+
+// DELETE /schedules/:id/feed  ->  turn the subscription off
+schedulesRouter.delete('/:id/feed', async (req, res) => {
+  if (!(await findOwnSchedule(req.params.id, req.userId))) return notFound(res);
+  await pool.query('DELETE FROM calendar_feeds WHERE schedule_id = $1', [req.params.id]);
+  res.status(204).end();
 });
