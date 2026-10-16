@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { validate } from '../validate.js';
 import { regenerateSession, destroySession } from '../session.js';
+import { requireAuth } from '../require-auth.js';
 
 export const authRouter = express.Router();
 
@@ -119,4 +120,30 @@ authRouter.get('/me', async (req, res) => {
     return res.json({ user: null });
   }
   res.json({ user: publicUser(rows[0]) });
+});
+
+// DELETE /auth/account   { password }
+// Permanently deletes the account. Thanks to ON DELETE CASCADE in the database,
+// all their schedules and subscription links are deleted along with it.
+const deleteAccountSchema = z.object({ password: z.string().max(200).optional() });
+
+authRouter.delete('/account', requireAuth, async (req, res) => {
+  const { data, errors } = validate(deleteAccountSchema, req.body ?? {});
+  if (errors) return res.status(400).json({ errors });
+
+  const { rows } = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.userId]);
+  if (!rows[0]) return res.status(404).json({ error: 'Account not found' });
+
+  // Ask for the password again, so someone using a borrowed, signed-in laptop
+  // can't delete the account. (Google/Microsoft-only accounts have no password.)
+  if (rows[0].password_hash && !(await argon2.verify(rows[0].password_hash, data.password ?? ''))) {
+    return res.status(401).json({ error: 'Password is incorrect' });
+  }
+
+  await pool.query('DELETE FROM users WHERE id = $1', [req.userId]);
+  // Also sign them out on every other device.
+  await pool.query(`DELETE FROM sessions WHERE sess->>'userId' = $1`, [req.userId]);
+  await destroySession(req);
+  res.clearCookie('wc.sid');
+  res.status(204).end();
 });

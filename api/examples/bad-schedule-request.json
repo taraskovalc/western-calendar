@@ -1,0 +1,11 @@
+{
+  "academicYear": "2026-27",
+  "courses": [
+    {
+      "subject": "compsci", "number": "1000", "component": "LEC", "section": "001",
+      "title": "Broken on purpose",
+      "meetings": [{ "days": ["Monday"], "start": "3pm", "end": "10:30" }],
+      "sneakyExtraField": "this should be rejected"
+    }
+  ]
+}

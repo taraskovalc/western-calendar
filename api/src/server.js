@@ -8,6 +8,8 @@ import { getTerms } from './terms.js';
 import { buildCalendar } from '../../shared/ics.js';
 import { createSessionMiddleware } from './session.js';
 import { authRouter } from './routes/auth.js';
+import { schedulesRouter } from './routes/schedules.js';
+import { requireJson } from './require-auth.js';
 
 // Bring the database up to date before accepting any requests.
 await migrate();
@@ -16,9 +18,11 @@ const app = express();
 const CURRENT_YEAR = '2026-27';
 
 app.use(helmet());                          // standard security headers on every response
+app.use(requireJson);                       // data must be sent as JSON (blocks CSRF via forms)
 app.use(express.json({ limit: '100kb' }));  // read JSON request bodies; refuse anything huge
 app.use(createSessionMiddleware());         // know who is signed in (from the cookie)
-app.use('/auth', authRouter);               // /auth/register, /auth/login, /auth/logout, /auth/me
+app.use('/auth', authRouter);               // /auth/register, /auth/login, /auth/logout, /auth/me, /auth/account
+app.use('/schedules', schedulesRouter);     // saved schedules (signed-in only)
 
 // GET /  ->  proves the API itself is running.
 app.get('/', (req, res) => {
