@@ -11,6 +11,7 @@ import { authRouter } from './routes/auth.js';
 import { schedulesRouter } from './routes/schedules.js';
 import { feedsRouter } from './routes/feeds.js';
 import { requireJson } from './require-auth.js';
+import { cors } from './cors.js';
 
 // Bring the database up to date before accepting any requests.
 await migrate();
@@ -18,7 +19,16 @@ await migrate();
 const app = express();
 const CURRENT_YEAR = '2026-27';
 
-app.use(helmet());                          // standard security headers on every response
+// The only way in is through the Cloudflare tunnel, which tells us the visitor's
+// real IP address and that they used HTTPS. "1" = trust exactly that one hop.
+// Needed so rate limits apply per visitor and secure cookies work.
+app.set('trust proxy', 1);
+
+app.use(cors);                              // let our own website call the API
+app.use(helmet({
+  // calendar.taraskoval.ca and api.taraskoval.ca are the same "site", so allow that.
+  crossOriginResourcePolicy: { policy: 'same-site' },
+}));                                        // standard security headers on every response
 app.use(requireJson);                       // data must be sent as JSON (blocks CSRF via forms)
 app.use(express.json({ limit: '100kb' }));  // read JSON request bodies; refuse anything huge
 app.use(createSessionMiddleware());         // know who is signed in (from the cookie)

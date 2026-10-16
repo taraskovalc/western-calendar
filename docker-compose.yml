@@ -1,5 +1,5 @@
 # Starts the whole backend with one command:  docker compose up -d --build
-# Two containers ("services") that can talk to each other by name.
+# Three containers ("services") that can talk to each other by name.
 
 services:
   # The database. Uses the official PostgreSQL image, so there's nothing to build.
@@ -37,12 +37,26 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in the .env file}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:3000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     ports:
-      # server port : container port. Lets you test from your Mac on the home network.
-      - "3000:3000"
+      # Only reachable from the server itself (for curl tests). Everyone else
+      # comes in through the Cloudflare tunnel below, never straight to port 3000.
+      - "127.0.0.1:3000:3000"
     depends_on:
       db:
         condition: service_healthy   # wait until the database is actually ready
+
+  # The Cloudflare Tunnel: an outgoing, encrypted connection to Cloudflare.
+  # Visitors to https://api.taraskoval.ca reach the API through it, so no router
+  # ports are opened and your home IP address stays hidden.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in the .env file}
+    depends_on:
+      - api
 
 volumes:
   db-data:
