@@ -17,6 +17,7 @@ const registerSchema = z.object({
   // Long beats complicated: a 10+ character minimum, no forced symbols.
   password: z.string().min(10, 'Password must be at least 10 characters').max(200),
   displayName: z.string().trim().min(1).max(60).optional(),
+  theme: z.enum(['light', 'dark']).optional(),
 });
 const loginSchema = z.object({
   email,
@@ -48,7 +49,7 @@ const registerLimiter = rateLimit({
 const dummyHash = await argon2.hash('this-is-not-a-real-password');
 
 // Only ever send these fields to the browser (never password_hash!).
-const publicUser = row => ({ id: row.id, email: row.email, displayName: row.display_name });
+const publicUser = row => ({ id: row.id, email: row.email, displayName: row.display_name, theme: row.theme });
 
 /* ---------- routes ---------- */
 
@@ -62,10 +63,10 @@ authRouter.post('/register', registerLimiter, async (req, res) => {
   let user;
   try {
     const { rows } = await pool.query(
-      `INSERT INTO users (email, password_hash, display_name)
-       VALUES ($1, $2, $3)
-       RETURNING id, email, display_name`,
-      [data.email, passwordHash, data.displayName ?? null],
+      `INSERT INTO users (email, password_hash, display_name, theme)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, email, display_name, theme`,
+      [data.email, passwordHash, data.displayName ?? null, data.theme ?? 'light'],
     );
     user = rows[0];
   } catch (err) {
@@ -86,7 +87,7 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
   if (errors) return res.status(400).json({ errors });
 
   const { rows } = await pool.query(
-    'SELECT id, email, display_name, password_hash FROM users WHERE email = $1',
+    'SELECT id, email, display_name, theme, password_hash FROM users WHERE email = $1',
     [data.email],
   );
   const user = rows[0];
@@ -114,7 +115,7 @@ authRouter.get('/me', async (req, res) => {
   const userId = req.session?.userId;
   if (!userId) return res.json({ user: null });
 
-  const { rows } = await pool.query('SELECT id, email, display_name FROM users WHERE id = $1', [userId]);
+  const { rows } = await pool.query('SELECT id, email, display_name, theme FROM users WHERE id = $1', [userId]);
   if (!rows[0]) {  // the account was deleted while this session was still around
     await destroySession(req);
     return res.json({ user: null });
@@ -146,4 +147,18 @@ authRouter.delete('/account', requireAuth, async (req, res) => {
   await destroySession(req);
   res.clearCookie('wc.sid');
   res.status(204).end();
+});
+
+// PATCH /auth/me   { theme }   ->  save settings for the signed-in user
+const settingsSchema = z.object({ theme: z.enum(['light', 'dark']) }).strict();
+
+authRouter.patch('/me', requireAuth, async (req, res) => {
+  const { data, errors } = validate(settingsSchema, req.body);
+  if (errors) return res.status(400).json({ errors });
+  const { rows } = await pool.query(
+    'UPDATE users SET theme = $1 WHERE id = $2 RETURNING id, email, display_name, theme',
+    [data.theme, req.userId],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Account not found' });
+  res.json({ user: publicUser(rows[0]) });
 });

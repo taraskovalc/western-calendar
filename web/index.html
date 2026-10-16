@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Slotted · Western timetable to calendar</title>
+  <meta name="description" content="Turns a saved Western DraftMySchedule page into a calendar file for Apple Calendar, Google Calendar, Outlook and other calendar apps.">
+  <meta name="color-scheme" content="light">
+  <script>
+    // Signed-in users get their saved theme straight away (no flash of the light theme).
+    try { if (localStorage.getItem('slotted-theme') === 'dark') { document.documentElement.dataset.theme = 'dark'; document.documentElement.style.colorScheme = 'dark'; } } catch {}
+  </script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <div class="desk">
+    <header class="topbar">
+      <a class="brand" href="#cover" aria-label="Slotted, back to the cover">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="3" y="5" width="26" height="24" rx="5" class="mark-frame"/>
+          <rect x="8" y="12" width="7" height="5" rx="1.2" class="mark-a"/>
+          <rect x="17" y="12" width="7" height="5" rx="1.2" class="mark-b"/>
+          <rect x="8" y="20" width="7" height="5" rx="1.2" class="mark-b"/>
+          <path d="M10 3v5M22 3v5" class="mark-pin"/>
+        </svg>
+        <span>Slotted</span>
+      </a>
+      <div class="topbar-right">
+        <p class="account-chip" id="account-chip" hidden></p>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" title="Switch to dark mode">
+          <span class="tt-track" aria-hidden="true"><span class="tt-knob"></span></span>
+          <span class="tt-text">Light</span>
+          <span class="visually-hidden">Dark mode</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- =================== Cover =================== -->
+    <section class="cover-wrap" id="view-cover" aria-labelledby="cover-title" tabindex="-1">
+      <div class="cover-book" id="cover-book">
+        <span class="elastic" aria-hidden="true"></span>
+        <div class="cover-label">
+          <p class="label-kicker">For Western University students</p>
+          <h1 id="cover-title">Slotted</h1>
+          <p class="label-line">Turns your DraftMySchedule timetable into calendar events: every class on the right day, at the right time, in the right room.</p>
+          <p class="label-fields">
+            <span>Term: <b id="cover-term">Fall/Winter 2026–27</b></span>
+            <span>Works with: <b>Apple · Google · Outlook</b></span>
+          </p>
+          <p class="contents-title">Contents</p>
+          <ol class="contents">
+            <li><span class="num">1</span><span>Sign in, or continue without an account</span><span class="dots"></span><span class="pg">p. 1</span></li>
+            <li><span class="num">2</span><span>Choose your calendar app</span><span class="dots"></span><span class="pg">p. 2</span></li>
+            <li><span class="num">3</span><span>Save your schedule from DraftMySchedule</span><span class="dots"></span><span class="pg">p. 3</span></li>
+            <li><span class="num">4</span><span>Add it to your calendar</span><span class="dots"></span><span class="pg">p. 4</span></li>
+          </ol>
+        </div>
+        <div class="cover-actions">
+          <button type="button" class="button-ink button-big" id="open-notebook">Open the notebook →</button>
+          <p class="cover-note">Takes a few minutes. Your schedule file is read on your device, not uploaded.</p>
+        </div>
+      </div>
+    </section>
+
+    <ol class="progress" id="progress" aria-label="Progress">
+      <li data-step="welcome"><span>1</span> Sign in</li>
+      <li data-step="app"><span>2</span> Calendar app</li>
+      <li data-step="schedule"><span>3</span> Your schedule</li>
+      <li data-step="done"><span>4</span> Add to calendar</li>
+    </ol>
+
+    <main class="notebook">
+      <!-- The blank band at the top of a notebook page -->
+      <div class="page-head" aria-hidden="true">
+        <span class="page-step" id="page-step">Step 1 of 4 · Start</span>
+        <span class="page-date">Date: <span id="page-date"></span></span>
+      </div>
+
+      <div class="page-body">
+
+        <!-- =================== 1. Welcome =================== -->
+        <section class="view view-centered" id="view-welcome" aria-labelledby="welcome-title" tabindex="-1">
+          <h2 id="welcome-title">Sign in, or jump straight in</h2>
+          <p class="lede welcome-lede">An account is optional. You can make your calendar file either way.</p>
+
+          <div class="intro-diagram" aria-hidden="true">
+            <div class="mini-panel">
+              <p class="mini-tag">your DraftMySchedule page</p>
+              <table class="mini-table">
+                <tr><td>Course</td><td>Days</td><td>Time</td><td>Room</td></tr>
+                <tr><td>MATH 1000</td><td>M W F</td><td>9:30</td><td>NCB-113</td></tr>
+                <tr><td>ENGLISH 1020</td><td>Tu Th</td><td>11:30</td><td>UC-1225</td></tr>
+                <tr><td>CHEM 1301</td><td>F</td><td>12:30</td><td>CHB-9</td></tr>
+                <tr><td>BIOLOGY 1001</td><td>M W</td><td>1:30</td><td>BGS-0153</td></tr>
+                <tr><td>HISTORY 1401</td><td>Tu Th</td><td>3:30</td><td>SSC-2050</td></tr>
+              </table>
+            </div>
+            <div class="mini-arrow"><span>→</span><small>Slotted</small></div>
+            <div class="mini-panel">
+              <p class="mini-tag">your calendar app</p>
+              <div class="mini-daynames"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span></div>
+              <div class="mini-week"><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:66px;--c:var(--c2);--e:var(--e2)">BIOLOGY</span></div><div class="mini-day"><span style="top:37px;--c:var(--c1);--e:var(--e1)">ENGLISH</span><span style="top:96px;--c:var(--c4);--e:var(--e4)">HISTORY</span></div><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:66px;--c:var(--c2);--e:var(--e2)">BIOLOGY</span></div><div class="mini-day"><span style="top:37px;--c:var(--c1);--e:var(--e1)">ENGLISH</span><span style="top:96px;--c:var(--c4);--e:var(--e4)">HISTORY</span></div><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:52px;--c:var(--c0);--e:var(--e0)">CHEM</span></div></div>
+            </div>
+          </div>
+          <p class="intro-why">DraftMySchedule can't send your timetable to a calendar app. <b>Slotted turns it into calendar events for the whole term</b>, so you never have to type a class in by hand.</p>
+          <p class="visually-hidden">Example: a DraftMySchedule class list (Math, English, Chemistry, Biology and History, with days, times and rooms) becomes weekly events in your calendar app.</p>
+
+          <div class="paper-card account-card">
+            <span class="tape" aria-hidden="true"></span>
+
+            <div id="signed-in" hidden>
+              <p class="signed-in-text">You're signed in as <b id="signed-in-email"></b>.</p>
+              <button type="button" class="button-ink" id="continue-user">Continue</button>
+            </div>
+
+            <div id="account-forms">
+              <div class="account-tabs" role="tablist" aria-label="Account">
+                <button type="button" role="tab" id="tab-signin" aria-selected="true" aria-controls="form-signin">Sign in</button>
+                <button type="button" role="tab" id="tab-register" aria-selected="false" aria-controls="form-register">Create account</button>
+              </div>
+
+              <form class="account-form" id="form-signin" novalidate>
+                <label>Email <input type="email" name="email" autocomplete="email" required></label>
+                <label>Password <input type="password" name="password" autocomplete="current-password" required></label>
+                <button type="submit" class="button-ink">Sign in</button>
+                <p class="form-status" role="status" aria-live="polite"></p>
+              </form>
+
+              <form class="account-form" id="form-register" novalidate hidden>
+                <label>Name <span class="optional">(optional)</span> <input type="text" name="displayName" autocomplete="given-name" maxlength="60"></label>
+                <label>Email <input type="email" name="email" autocomplete="email" required></label>
+                <label>Password <span class="optional">(at least 10 characters)</span> <input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
+                <button type="submit" class="button-ink">Create account</button>
+                <p class="form-status" role="status" aria-live="polite"></p>
+              </form>
+
+              <div class="or"><span>or</span></div>
+              <button type="button" class="button-plain" id="continue-guest">Continue without an account</button>
+            </div>
+
+            <div class="account-explain">
+              <div class="explain-card"><span class="explain-icon" aria-hidden="true">↓</span><b>Without an account</b><span>Nothing is stored. You download your calendar file and that's it.</span></div>
+              <div class="explain-card"><span class="explain-icon" aria-hidden="true">↻</span><b>With an account</b><span>Your schedule is saved, and you get a link that keeps your calendar up to date.</span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================== 2. Calendar app =================== -->
+        <section class="view" id="view-app" aria-labelledby="app-title" tabindex="-1" hidden>
+          <div class="view-intro">
+            <h2 id="app-title">Which calendar app do you use?</h2>
+            <p class="lede">The file you'll download works in all of them. Picking yours means the last page shows the exact steps for adding your classes to it.</p>
+          </div>
+
+          <fieldset class="apps">
+            <legend class="visually-hidden">Calendar app</legend>
+            <label class="app-card">
+              <input type="radio" name="app" value="apple">
+              <span class="app-name">Apple Calendar</span>
+              <span class="app-detail">The Calendar app on Mac, iPhone and iPad. You can add your classes from any of them.</span>
+            </label>
+            <label class="app-card">
+              <input type="radio" name="app" value="google">
+              <span class="app-name">Google Calendar</span>
+              <span class="app-detail">The calendar on most Android phones and at calendar.google.com. You'll add the file on a computer, then your classes appear on your phone too.</span>
+            </label>
+            <label class="app-card">
+              <input type="radio" name="app" value="outlook">
+              <span class="app-name">Outlook</span>
+              <span class="app-detail">Microsoft's calendar, in Outlook on the web, Windows or Mac, including school and work accounts.</span>
+            </label>
+            <label class="app-card">
+              <input type="radio" name="app" value="other">
+              <span class="app-name">Something else</span>
+              <span class="app-detail">Any other app that opens .ics calendar files, like Proton Calendar, Thunderbird or Samsung Calendar.</span>
+            </label>
+          </fieldset>
+
+          <div class="nav-row">
+            <button type="button" class="button-plain" data-go="welcome">← Back</button>
+            <button type="button" class="button-ink" id="app-next" disabled>Continue</button>
+          </div>
+        </section>
+
+        <!-- =================== 3. Your schedule =================== -->
+        <section class="view" id="view-schedule" aria-labelledby="schedule-title" tabindex="-1" hidden>
+          <div class="view-intro">
+            <h2 id="schedule-title">Save your schedule from DraftMySchedule</h2>
+            <p class="lede">Slotted needs one file: your DraftMySchedule page, saved from your browser. It takes about a minute: four quick steps. Tick each one off as you go.</p>
+          </div>
+
+          <ol class="checklist" id="guide">
+            <li class="task">
+              <label class="task-head"><input type="checkbox"><span class="check-box" aria-hidden="true"></span>
+                <span class="task-title">Open DraftMySchedule on a computer and sign in</span></label>
+              <div class="task-detail">Sign in with your Western account. Use a laptop or desktop: phones can't easily save a whole web page.</div>
+            </li>
+            <li class="task">
+              <label class="task-head"><input type="checkbox"><span class="check-box" aria-hidden="true"></span>
+                <span class="task-title">Click “My Current Schedule” in the menu at the top</span></label>
+              <div class="task-detail">
+                <p>After you sign in, DraftMySchedule opens on <b>Build Future Draft</b>. That page is for planning drafts, not the classes you're registered in, so switch to <b>My Current Schedule</b>.</p>
+                <div class="menu-sketch" aria-hidden="true">
+                  <span>Home</span><span>Course List</span><span>Build Draft</span><span>Access Saved Drafts</span><span>My Shared Drafts</span><span class="menu-pick"><span class="menu-target">My Current Schedule</span><span class="menu-arrow">← click this one</span></span><span>Enrollment Appointment</span>
+                </div>
+              </div>
+            </li>
+
+            <li class="task">
+              <label class="task-head"><input type="checkbox"><span class="check-box" aria-hidden="true"></span>
+                <span class="task-title">Save the page as a file</span></label>
+              <div class="task-detail">
+                <p>Stay on My Current Schedule; there's no need to scroll or click anything else. Saving keeps the whole page, including the class list Slotted reads.</p>
+                <p class="save-main" id="save-steps">Press <kbd>Ctrl</kbd> + <kbd>S</kbd>, set the format to <b>Webpage, HTML Only</b>, then click Save.</p>
+                <details class="other-browsers">
+                  <summary>Steps for other browsers</summary>
+                  <ul>
+                    <li><b>Chrome or Edge:</b> <kbd>Ctrl</kbd> + <kbd>S</kbd> (<kbd>⌘</kbd> + <kbd>S</kbd> on a Mac), set the format to <b>Webpage, HTML Only</b>, then Save.</li>
+                    <li><b>Safari:</b> choose <b>File → Save As…</b>, set Format to <b>Page Source</b>, then Save.</li>
+                    <li><b>Firefox:</b> <kbd>Ctrl</kbd> + <kbd>S</kbd> (<kbd>⌘</kbd> + <kbd>S</kbd> on a Mac), choose <b>Web Page, HTML only</b>, then Save.</li>
+                  </ul>
+                </details>
+                <p class="tip">Save the page itself, not DraftMySchedule's PDF. The PDF doesn't keep the rooms and times in a form Slotted can read.</p>
+              </div>
+            </li>
+            <li class="task">
+              <label class="task-head"><input type="checkbox"><span class="check-box" aria-hidden="true"></span>
+                <span class="task-title">Find the saved file</span></label>
+              <div class="task-detail">It's usually in your <b>Downloads</b> folder, named <b>The University of Western Ontario.html</b>.</div>
+            </li>
+          </ol>
+
+          <h3 class="part-title"><span>Add the file you saved</span></h3>
+          <label class="dropzone" id="dropzone" for="file-input">
+            <input id="file-input" type="file" accept=".html,.htm,text/html" class="visually-hidden">
+            <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+            <span class="drop-title">Drag the file here, or <u>click to choose it</u></span>
+            <span class="drop-detail">The University of Western Ontario.html</span>
+          </label>
+          <p class="privacy-note">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+            The file is read on your device. It isn't uploaded anywhere.
+          </p>
+          <p class="status" id="read-status" role="status" aria-live="polite"></p>
+
+          <!-- Shown once a file is read -->
+          <div id="check-part" hidden>
+            <h3 class="part-title"><span>Check your classes</span></h3>
+            <p class="part-hint" id="found-summary"></p>
+
+            <div class="term-tabs" role="tablist" aria-label="Term">
+              <button type="button" role="tab" class="term-tab" data-term="fall" aria-selected="true">Fall term</button>
+              <button type="button" role="tab" class="term-tab" data-term="winter" aria-selected="false">Winter term</button>
+            </div>
+            <p class="term-range" id="term-range"></p>
+
+            <div class="week-wrap">
+              <div class="week" id="week" role="img" aria-label="Weekly timetable preview"></div>
+            </div>
+            <div class="day-list" id="day-list"></div>
+
+            <div class="margin-note" id="extra-notes" hidden>
+              <h4>Not added to the calendar</h4>
+              <ul id="not-added"></ul>
+            </div>
+            <div class="margin-note" id="read-notes" hidden>
+              <h4>Notes about your file</h4>
+              <ul id="notes-list"></ul>
+            </div>
+
+            <h3 class="part-title"><span>Choose what to include</span></h3>
+            <div class="options">
+              <fieldset class="option">
+                <legend>Which term</legend>
+                <div class="segmented">
+                  <label><input type="radio" name="include" value="both" checked><span>Both</span></label>
+                  <label><input type="radio" name="include" value="fall"><span>Fall only</span></label>
+                  <label><input type="radio" name="include" value="winter"><span>Winter only</span></label>
+                </div>
+              </fieldset>
+              <fieldset class="option" id="reminder-option">
+                <legend>Reminder before each class</legend>
+                <select id="alarm" aria-label="Reminder before each class">
+                  <option value="0">No reminder</option>
+                  <option value="5">5 minutes before</option>
+                  <option value="10" selected>10 minutes before</option>
+                  <option value="15">15 minutes before</option>
+                  <option value="30">30 minutes before</option>
+                </select>
+                <p class="option-note" id="reminder-note" hidden>Google Calendar doesn't keep reminders from imported files. The last page shows how to turn them on in Google instead.</p>
+              </fieldset>
+            </div>
+
+            <div class="download-box">
+              <p class="download-detail" id="download-detail"></p>
+              <button type="button" class="button-ink button-big" id="download">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>
+                Download calendar file
+              </button>
+            </div>
+          </div>
+
+          <div class="nav-row">
+            <button type="button" class="button-plain" data-go="app">← Back</button>
+          </div>
+        </section>
+
+        <!-- =================== 4. Done =================== -->
+        <section class="view" id="view-done" aria-labelledby="done-title" tabindex="-1" hidden>
+          <div class="confetti" id="confetti" aria-hidden="true"></div>
+          <div class="view-intro">
+            <p class="scribble">done!</p>
+            <h2 id="done-title">Your calendar file is ready</h2>
+            <p class="lede" id="done-file"></p>
+          </div>
+
+          <div class="stickies" id="stickies"></div>
+
+          <div class="paper-card next-class" id="next-class" hidden>
+            <span class="tape" aria-hidden="true"></span>
+            <p class="next-label">Your next class</p>
+            <p class="next-when" id="next-when"></p>
+            <p class="next-what" id="next-what"></p>
+          </div>
+
+          <h3 class="part-title"><span id="howto-title">Add it to your calendar</span></h3>
+          <div class="instructions" id="howto-apple" hidden>
+            <ol>
+              <li><b>Open the file.</b> On a Mac, double-click it in Downloads. On an iPhone or iPad, tap it in the Files app or in your downloads.</li>
+              <li><b>Choose where the classes go.</b> On a Mac, pick <b>New Calendar</b> so your classes have their own calendar you can hide, recolour or remove in one go. On iPhone or iPad, tap <b>Add All</b>.</li>
+              <li><b>That's it.</b> With iCloud turned on, your classes appear on your other Apple devices automatically.</li>
+            </ol>
+          </div>
+          <div class="instructions" id="howto-google" hidden>
+            <ol>
+              <li><b>On a computer, go to calendar.google.com.</b> Google only imports files on a computer; afterwards your classes show up on your phone too.</li>
+              <li><b>Make a calendar just for classes.</b> Go to <b>Settings → Add calendar → Create new calendar</b> and name it something like “Western Classes”. Google can't undo an import, so a separate calendar lets you delete all the classes in one step if you ever need to.</li>
+              <li><b>Import the file.</b> Go to <b>Settings → Import &amp; export</b>, select the downloaded file, choose your new calendar, then click <b>Import</b>.</li>
+              <li><b>Turn on reminders (optional).</b> Open your new calendar's settings and add an <b>Event notification</b>, for example 10 minutes before.</li>
+            </ol>
+          </div>
+          <div class="instructions" id="howto-outlook" hidden>
+            <ol>
+              <li><b>Outlook on the web:</b> open Calendar, choose <b>Add calendar → Upload from file</b>, select the downloaded file, choose a calendar, then click <b>Import</b>.</li>
+              <li><b>Outlook on Windows or Mac:</b> double-click the downloaded file and Outlook will offer to import the events. Choose a calendar for them.</li>
+              <li>The reminder you picked is included and works in Outlook.</li>
+            </ol>
+          </div>
+          <div class="instructions" id="howto-other" hidden>
+            <ol>
+              <li><b>Open the file</b> with your calendar app, or look for an <b>Import</b> option in its settings or menu.</li>
+              <li><b>If it asks where to put the events,</b> choose a new, separate calendar, so your classes can be hidden or removed together later.</li>
+              <li>The file uses the standard iCalendar (.ics) format, which almost every calendar app supports.</li>
+            </ol>
+          </div>
+
+          <p class="check-note">Something not right? Compare a few classes with DraftMySchedule. If your schedule changes later, come back and make a new file.</p>
+
+          <div class="nav-row">
+            <button type="button" class="button-plain" data-go="schedule">← Back to my classes</button>
+            <button type="button" class="button-plain" id="download-again">Download the file again</button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <p class="footer-made">Made by <a href="https://taraskoval.ca">Taras Koval</a>, a student at Western</p>
+      <p class="footer-fine">Slotted isn't affiliated with Western University. Always check important dates against Western's official academic calendar.</p>
+      <p class="footer-links"><a href="https://github.com/taraskovalc/western-calendar">Source code on GitHub</a></p>
+    </footer>
+  </div>
+</body>
+</html>

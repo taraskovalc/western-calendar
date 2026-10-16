@@ -1,0 +1,54 @@
+# Publishes the Slotted webpage (web/ + shared/) to GitHub Pages.
+# Runs automatically on every push that changes the webpage or the shared code.
+name: Publish Slotted
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', 'shared/**', '.github/workflows/pages.yml']
+  workflow_dispatch:          # also adds a "Run workflow" button on GitHub
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # If the calendar tests fail, nothing gets published.
+      - name: Run the calendar tests
+        run: node --test shared/ics.test.js
+
+      # Put the page and the shared code into one folder, laid out so that
+      # app.js's "../shared/ics.js" import still works on the live site.
+      - name: Bundle the site
+        run: |
+          mkdir -p _site/shared
+          cp -r web/. _site/
+          cp shared/ics.js shared/terms.js _site/shared/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
