@@ -1,16 +1,24 @@
 // Entry point of the API: creates the Express app and starts listening.
 import fs from 'node:fs/promises';
 import express from 'express';
+import helmet from 'helmet';
 import { pool } from './db.js';
 import { migrate } from './migrate.js';
 import { getTerms } from './terms.js';
 import { buildCalendar } from '../../shared/ics.js';
+import { createSessionMiddleware } from './session.js';
+import { authRouter } from './routes/auth.js';
 
 // Bring the database up to date before accepting any requests.
 await migrate();
 
 const app = express();
 const CURRENT_YEAR = '2026-27';
+
+app.use(helmet());                          // standard security headers on every response
+app.use(express.json({ limit: '100kb' }));  // read JSON request bodies; refuse anything huge
+app.use(createSessionMiddleware());         // know who is signed in (from the cookie)
+app.use('/auth', authRouter);               // /auth/register, /auth/login, /auth/logout, /auth/me
 
 // GET /  ->  proves the API itself is running.
 app.get('/', (req, res) => {

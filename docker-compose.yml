@@ -34,6 +34,8 @@ services:
       # "db" is the service name above; Docker turns it into the database's address.
       DATABASE_URL: postgres://calendar:${POSTGRES_PASSWORD}@db:5432/calendar
       PORT: 3000
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in the .env file}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
       # server port : container port. Lets you test from your Mac on the home network.
       - "3000:3000"
