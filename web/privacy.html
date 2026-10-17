@@ -9,28 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
-  <style>
-    :root { --ink: #2b2620; --muted: #6b6257; --accent: #b4532a; --paper: #fbf7ef; --line: #e7dfd0; --desk: #c9a67a; }
-    @media (prefers-color-scheme: dark) {
-      :root { --ink: #e8efe9; --muted: #a9b5ad; --accent: #f0956a; --paper: #1f2723; --line: #34403a; --desk: #3a2a1e; }
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--desk); color: var(--ink); font: 16px/1.65 Inter, system-ui, sans-serif; }
-    main { max-width: 720px; margin: 40px auto; padding: 40px 48px; background: var(--paper); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
-    h1, h2 { font-family: Fraunces, Georgia, serif; line-height: 1.2; }
-    h1 { font-size: 2.1rem; margin: 0 0 4px; }
-    h2 { font-size: 1.25rem; margin: 32px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
-    .updated { color: var(--muted); margin: 0 0 24px; font-size: .9rem; }
-    a { color: var(--accent); }
-    ul { padding-left: 1.2em; }
-    li { margin-bottom: 6px; }
-    .brand-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
-    .brand { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); text-decoration: none; font: 700 22px/1 Fraunces, Georgia, serif; }
-    .brand svg { width: 30px; height: 30px; }
-    .back { font-weight: 500; font-size: .95rem; }
-    footer { margin-top: 36px; color: var(--muted); font-size: .9rem; }
-    @media (max-width: 640px) { main { margin: 0; border-radius: 0; padding: 28px 16px; } }
-  </style>
+  <link rel="stylesheet" href="page.css">
 </head>
 <body>
   <main>
@@ -48,7 +27,7 @@
       <a class="back" href="./">← Back to Slotted</a>
     </header>
     <h1>Privacy</h1>
-    <p class="updated">Last updated October 16, 2026</p>
+    <p class="updated">Last updated October 17, 2026</p>
 
     <p>Slotted turns a saved Western University DraftMySchedule page into calendar events. This page explains what it stores, why, and how to delete it.</p>
 
@@ -75,6 +54,9 @@
 
     <h2>Deleting it</h2>
     <p>Sign in, open <b>Account</b> at the top of the page, and choose <b>Delete my account</b>. Your account, schedules and calendar links are removed straight away, and from backups within 14 days. If you signed in with Google, you can also remove Slotted's access at any time from your Google Account under <b>Security → Your connections to third-party apps</b>.</p>
+
+    <h2>Problem reports</h2>
+    <p>If you use <a href="report.html">Report a problem</a>, your message is emailed to Taras, along with anything you choose to add: your email address, your device and browser, and your saved schedule file. Reports aren't stored on the server.</p>
 
     <h2>Questions</h2>
     <p>Email <a href="mailto:ktaras105@gmail.com">ktaras105@gmail.com</a>.</p>

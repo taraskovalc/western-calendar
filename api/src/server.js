@@ -11,6 +11,7 @@ import { authRouter } from './routes/auth.js';
 import { schedulesRouter } from './routes/schedules.js';
 import { feedsRouter } from './routes/feeds.js';
 import { oauthRouter } from './routes/oauth.js';
+import { reportRouter } from './routes/report.js';
 import { requireJson } from './require-auth.js';
 import { cors } from './cors.js';
 
@@ -31,12 +32,14 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'same-site' },
 }));                                        // standard security headers on every response
 app.use(requireJson);                       // data must be sent as JSON (blocks CSRF via forms)
+app.use('/report', express.json({ limit: '1mb' }));  // a problem report may carry the saved schedule page
 app.use(express.json({ limit: '100kb' }));  // read JSON request bodies; refuse anything huge
 app.use(createSessionMiddleware());         // know who is signed in (from the cookie)
 app.use('/auth', authRouter);               // /auth/register, /auth/login, /auth/logout, /auth/me, /auth/account
 app.use('/auth', oauthRouter);              // /auth/providers, /auth/google/...
 app.use('/schedules', schedulesRouter);     // saved schedules (signed-in only)
 app.use('/feeds', feedsRouter);             // public subscription links (the token is the key)
+app.use('/report', reportRouter);           // "Report a problem" form, emailed to Taras
 
 // GET /  ->  proves the API itself is running.
 app.get('/', (req, res) => {

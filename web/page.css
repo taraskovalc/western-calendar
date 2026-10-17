@@ -1,0 +1,45 @@
+/* Shared look for Slotted's standalone pages (privacy policy, report a problem). */
+:root { --ink: #2b2620; --muted: #6b6257; --accent: #b4532a; --paper: #fbf7ef; --line: #e7dfd0; --desk: #c9a67a; --field: #f3ede1; --accent-soft: rgb(180 83 42 / 18%); --done: #2f7d4f; --on-accent: #fff; }
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #e8efe9; --muted: #a9b5ad; --accent: #f0956a; --paper: #1f2723; --line: #34403a; --desk: #3a2a1e; --field: #27302b; --accent-soft: rgb(240 149 106 / 20%); --done: #6cc28f; --on-accent: #1f2723; }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--desk); color: var(--ink); font: 16px/1.65 Inter, system-ui, sans-serif; }
+main { max-width: 720px; margin: 40px auto; padding: 40px 48px; background: var(--paper); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+h1, h2 { font-family: Fraunces, Georgia, serif; line-height: 1.2; }
+h1 { font-size: 2.1rem; margin: 0 0 4px; }
+h2 { font-size: 1.25rem; margin: 32px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.updated { color: var(--muted); margin: 0 0 24px; font-size: .9rem; }
+a { color: var(--accent); }
+ul { padding-left: 1.2em; }
+li { margin-bottom: 6px; }
+.brand-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.brand { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); text-decoration: none; font: 700 22px/1 Fraunces, Georgia, serif; }
+.brand svg { width: 30px; height: 30px; }
+.back { font-weight: 500; font-size: .95rem; }
+footer { margin-top: 36px; color: var(--muted); font-size: .9rem; }
+@media (max-width: 640px) { main { margin: 0; border-radius: 0; padding: 28px 16px; } }
+
+/* forms (report a problem) */
+form { display: grid; gap: 18px; margin-top: 8px; }
+label { display: grid; gap: 6px; font-weight: 600; }
+.hint { font-weight: 400; color: var(--muted); font-size: .9rem; }
+input[type="email"], input[type="text"], select, textarea {
+  font: 16px Inter, system-ui, sans-serif; color: var(--ink); background: var(--field); border: 1.5px solid var(--line);
+  border-radius: 10px; padding: 11px 12px; width: 100%;
+}
+textarea { min-height: 150px; resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+input[type="file"] { font: 15px Inter, system-ui, sans-serif; color: var(--muted); }
+.button {
+  justify-self: start; font: 600 16px/1 Inter, system-ui, sans-serif; padding: 14px 24px; border-radius: 10px; cursor: pointer;
+  border: 2px solid var(--ink); background: var(--accent); color: var(--on-accent); box-shadow: 3px 3px 0 var(--ink);
+}
+.button:disabled { opacity: .5; cursor: progress; box-shadow: none; }
+.status:empty { display: none; }
+.status { margin: 0; padding: 12px 14px; border-radius: 10px; background: var(--field); }
+.status.error { color: #b03a2e; }
+.sent { padding: 22px; border-radius: 10px; background: var(--field); border-top: 4px solid var(--done); }
+.sent h2 { margin-top: 0; border: 0; padding: 0; }
+.trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }

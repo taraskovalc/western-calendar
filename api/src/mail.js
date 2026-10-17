@@ -9,12 +9,13 @@ const FROM = process.env.MAIL_FROM;  // e.g. "Slotted <noreply@taraskoval.ca>"
 
 export const mailEnabled = Boolean(API_KEY && FROM);
 
-export async function sendMail({ to, subject, text, html }) {
+export async function sendMail({ to, subject, text, html, replyTo, attachments }) {
   if (!mailEnabled) throw new Error('Email is not configured');
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: FROM, to: [to], subject, text, html }),
+    // attachments: [{ filename, content (base64) }]. reply_to: where "Reply" goes.
+    body: JSON.stringify({ from: FROM, to: [to], subject, text, html, reply_to: replyTo, attachments }),
     signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) {

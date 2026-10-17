@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Report a problem · Slotted</title>
+  <meta name="description" content="Tell Taras what went wrong with Slotted.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="page.css">
+</head>
+<body>
+  <main>
+    <header class="brand-row">
+      <a class="brand" href="./" aria-label="Slotted home">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="3" y="5" width="26" height="24" rx="5" fill="none" stroke="currentColor" stroke-width="2.2"/>
+          <rect x="8" y="12" width="7" height="5" rx="1.2" fill="var(--accent)"/>
+          <rect x="17" y="12" width="7" height="5" rx="1.2" fill="currentColor" opacity=".35"/>
+          <rect x="8" y="20" width="7" height="5" rx="1.2" fill="currentColor" opacity=".35"/>
+          <path d="M10 3v5M22 3v5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        <span>Slotted</span>
+      </a>
+      <a class="back" href="./">← Back to Slotted</a>
+    </header>
+    <h1>Report a problem</h1>
+    <p class="updated">Something missing, wrong, or broken? Tell me here and I'll look into it. I'm Taras, the student who made Slotted, and this goes straight to me.</p>
+
+    <form id="report-form" novalidate>
+      <label><span>What went wrong?</span>
+        <span class="hint">For example: "My Tuesday lab is missing" or "The download button does nothing."</span>
+        <textarea name="message" required minlength="10" maxlength="5000"></textarea>
+      </label>
+
+      <label><span>Where did it happen? <span class="hint">(optional)</span></span>
+        <select name="step">
+          <option value="">Choose a step</option>
+          <option value="sign-in">Signing in or creating an account</option>
+          <option value="calendar-app">Choosing a calendar app</option>
+          <option value="schedule">Adding the schedule file</option>
+          <option value="add-to-calendar">Adding classes to a calendar</option>
+          <option value="calendar-link">The calendar link</option>
+          <option value="other">Something else</option>
+        </select>
+      </label>
+
+      <label><span>Your email <span class="hint">(optional, only if you'd like a reply)</span></span>
+        <input type="email" name="email" autocomplete="email" maxlength="254">
+      </label>
+
+      <label><span>Your device and browser <span class="hint">(helps me reproduce it; change it if it's wrong)</span></span>
+        <input type="text" name="device" maxlength="200">
+      </label>
+
+      <label><span>Your saved schedule file <span class="hint">(optional)</span></span>
+        <span class="hint">If a class is missing or wrong, this helps the most. It has your name and courses in it, so only add it if you're comfortable. It's emailed to me and not stored anywhere.</span>
+        <input type="file" name="file" accept=".html,.htm,text/html">
+      </label>
+
+      <!-- Left empty by people; bots fill it in. -->
+      <div class="trap" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+
+      <p class="status" id="report-status" role="status" aria-live="polite"></p>
+      <button type="submit" class="button" id="report-send">Send report</button>
+    </form>
+
+    <div class="sent" id="report-sent" hidden tabindex="-1">
+      <h2>Thanks, it's sent.</h2>
+      <p id="report-sent-text">I read every report. If you left your email, I'll reply there.</p>
+      <p><a href="./">← Back to Slotted</a></p>
+    </div>
+
+    <footer>What happens to a report is explained in the <a href="privacy.html">privacy policy</a>. Slotted isn't affiliated with Western University.</footer>
+  </main>
+  <script type="module" src="report.js"></script>
+</body>
+</html>

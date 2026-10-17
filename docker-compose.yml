@@ -42,6 +42,8 @@ services:
       # Optional: email for "Forgot your password?" (see README.md)
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      # Where "Report a problem" messages are emailed (uses the same Resend setup)
+      REPORT_EMAIL: ${REPORT_EMAIL:-ktaras105@gmail.com}
       # Optional: "Continue with Google" (see README.md)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
