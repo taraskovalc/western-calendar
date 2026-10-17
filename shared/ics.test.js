@@ -121,3 +121,14 @@ test('line breaks inside text cannot add extra calendar lines', () => {
   assert.ok(!ics.includes('\r\nSUMMARY:Hacked'));
   assert.ok(!/\r(?!\n)/.test(ics));   // no lone carriage returns
 });
+
+test('every event in a calendar has its own UID, and exact duplicates are added once', () => {
+  const lab = { ...fallClass, component: 'LAB', meetings: [
+    { days: ['Tu'], start: '09:30', end: '10:30', room: 'A' },
+    { days: ['Tu'], start: '09:30', end: '11:30', room: 'B' },   // same start, different end/room
+  ] };
+  const { ics, added } = buildCalendar({ courses: [lab, lab], terms, now: fixedNow });   // the row listed twice
+  const uids = ics.match(/^UID:.*$/gm);
+  assert.equal(new Set(uids).size, uids.length);
+  assert.equal(added.length, 2);
+});

@@ -22,13 +22,15 @@ export function feedLinks(token) {
   return { url, webcalUrl: url.replace(/^https?:/, 'webcal:') };
 }
 
-// Only FAILED lookups count toward the limit. Real calendar apps (even many
-// students sharing one campus network) are never slowed down, but anyone
-// guessing tokens is cut off after 20 misses.
+// Only FAILED lookups of malformed addresses count toward the limit. A
+// well-formed token is 256 random bits, so guessing one is hopeless anyway,
+// and calendar services (Google, Outlook) that share IPs and keep checking old
+// or reset links must never be blocked from everyone else's working feeds.
 const guessLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
   skipSuccessfulRequests: true,
+  skip: req => TOKEN_FILE.test(req.params.file ?? ''),
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: 'Too many invalid requests',

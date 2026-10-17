@@ -43,6 +43,8 @@ function el(tag, { className, text, attrs } = {}, children = []) {
 const minutes = hhmm => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3));
 const plural = (n, word, many = `${word}s`) => `${n.toLocaleString()} ${n === 1 ? word : many}`;
 const clock = hhmm => { const h = Number(hhmm.slice(0, 2)); return `${h % 12 || 12}:${hhmm.slice(3)} ${h < 12 ? 'AM' : 'PM'}`; };
+// Today's date on this computer as YYYY-MM-DD (not UTC, which is a day ahead in the evening).
+const localDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const shortDate = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const longDate = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const courseKey = c => `${c.subject} ${c.number}`;
@@ -137,6 +139,7 @@ function renderWelcome() {
 // Clears everything about the current user (after signing out or deleting the account).
 function signedOut() {
   Object.assign(state, { user: null, scheduleId: null, scheduleName: null, saveResult: null, feed: null });
+  resetSchedulePage();  // the next person on this computer starts with an empty schedule
   cacheTheme(null);
   renderAccountChip();
   $('#tab-signin')?.click(); // next visit to the welcome page starts on "Sign in"
@@ -175,6 +178,9 @@ async function submitAccount(form, path) {
   const body = Object.fromEntries(new FormData(form));
   if (!body.displayName) delete body.displayName;
   if (path === '/auth/register') body.theme = currentTheme();
+  const submit = form.querySelector('[type="submit"]');
+  if (submit.disabled) return;  // already sending (double click)
+  submit.disabled = true;
   status.className = 'form-status';
   status.textContent = path === '/auth/login' ? 'Signing in…' : 'Creating your account…';
   try {
@@ -188,6 +194,8 @@ async function submitAccount(form, path) {
     status.textContent = err instanceof ApiUnavailable
       ? "Accounts aren't available right now. You can still continue without an account; nothing about the calendar file changes."
       : err.message;
+  } finally {
+    submit.disabled = false;
   }
 }
 $('#form-signin').addEventListener('submit', event => { event.preventDefault(); submitAccount(event.currentTarget, '/auth/login'); });
@@ -196,6 +204,8 @@ $('#form-register').addEventListener('submit', event => { event.preventDefault()
 function signedIn(user) {
   state.user = user;
   state.started = true;
+  // A file downloaded before signing in wasn't saved; download again to save it.
+  Object.assign(state, { lastDownload: null, saveResult: null });
   applyTheme(user.theme ?? 'light');
   cacheTheme(user.theme ?? 'light');
   welcomeMessage('');
@@ -217,6 +227,11 @@ document.querySelectorAll('input[name="app"]').forEach(radio => radio.addEventLi
   updateReminderOption();
 }));
 $('#app-next').addEventListener('click', () => show('schedule'));
+// Browsers can restore a ticked option after Back or reload; pick it up.
+if (chosen('app')) {
+  state.app = chosen('app');
+  $('#app-next').disabled = false;
+}
 
 function updateReminderOption() {
   $('#reminder-note').hidden = state.app !== 'google';
@@ -249,6 +264,7 @@ function resetSchedulePage() {
   $('.drop-title').replaceChildren('Drag the file here, or ', el('u', { text: 'click to choose it' }));
   $('.drop-detail').textContent = 'The University of Western Ontario.html';
   document.querySelectorAll('#guide input').forEach(box => { box.checked = false; });
+  $('#file-input').value = '';
   setStatus('', '');
 }
 
@@ -280,12 +296,13 @@ async function handleFile(file) {
     return;
   }
 
-  const year = result.academicYear && TERM_DATES[result.academicYear] ? result.academicYear : LATEST_YEAR;
+  if (result.academicYear && !TERM_DATES[result.academicYear]) {
+    setStatus(`This schedule is for the ${result.academicYear} school year. Slotted doesn't have that year's term dates yet (they're added once Western publishes them), so it can't make a calendar for it yet. Slotted currently has ${LATEST_YEAR}.`, 'error');
+    return;
+  }
+  const year = result.academicYear ?? LATEST_YEAR;
   Object.assign(state, { courses: result.courses, academicYear: year, terms: TERM_DATES[year], lastDownload: null, saveResult: null });
   const notes = [...result.notes];
-  if (result.academicYear && !TERM_DATES[result.academicYear]) {
-    notes.push(`Your file is for ${result.academicYear}, but only ${LATEST_YEAR} dates are available, so ${LATEST_YEAR} dates are used.`);
-  }
 
   // Tick off the guide: they clearly found and saved the file.
   document.querySelectorAll('#guide input').forEach(box => { box.checked = true; });
@@ -303,7 +320,10 @@ async function handleFile(file) {
 }
 
 const input = $('#file-input');
-input.addEventListener('change', () => handleFile(input.files[0]));
+input.addEventListener('change', () => {
+  handleFile(input.files[0]);
+  input.value = '';  // so choosing the same file again still works
+});
 const zone = $('#dropzone');
 ['dragenter', 'dragover'].forEach(type => zone.addEventListener(type, event => { event.preventDefault(); zone.classList.add('dragging'); }));
 ['dragleave', 'drop'].forEach(type => zone.addEventListener(type, () => zone.classList.remove('dragging')));
@@ -330,7 +350,9 @@ function renderCheck(notes) {
   const unplaced = timed.filter(c => whyNotPlaced(c.number));
   $('#found-summary').textContent =
     `${plural(new Set(state.courses.map(courseKey)).size, 'course')} and ${plural(timed.length, 'lecture, lab or tutorial', 'lectures, labs and tutorials')} with set times. Compare this week with DraftMySchedule before you download.`;
-  state.tab = meetingsFor('fall').length ? 'fall' : 'winter';
+  // Open the term that's next: winter once fall classes are over.
+  const fallOver = localDate(new Date()) > (state.terms.find(t => t.season === 'fall')?.ends_on ?? '');
+  state.tab = (fallOver && meetingsFor('winter').length) || !meetingsFor('fall').length ? 'winter' : 'fall';
   renderWeek();
 
   $('#not-added').replaceChildren(
@@ -456,7 +478,8 @@ function summarize(include) {
   let total = 0;
   let skipped = 0;
   let next = null;
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const nowKey = `${localDate(now)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   for (const course of state.courses) {
     for (const term of periodsFor(course.number, state.terms, include)) {
       for (const meeting of course.meetings) {
@@ -468,7 +491,7 @@ function summarize(include) {
           if (term.no_class_dates.includes(iso)) { skipped++; continue; }
           total++;
           const key = `${iso} ${meeting.start}`;
-          if (iso >= todayIso && (!next || key < next.key)) next = { key, iso, course, meeting };
+          if (key > nowKey && (!next || key < next.key)) next = { key, iso, course, meeting };
         }
       }
     }
@@ -607,12 +630,15 @@ async function loadMySchedules() {
 
 // A button that needs a second click to confirm (no pop-up windows).
 function confirmThen(button, confirmText, action) {
+  button.dataset.original ??= button.textContent;
+  const original = button.dataset.original;
   if (button.dataset.armed) {
     delete button.dataset.armed;
+    button.textContent = original;
+    button.classList.remove('confirm');
     action();
     return;
   }
-  const original = button.textContent;
   button.dataset.armed = '1';
   button.textContent = confirmText;
   button.classList.add('confirm');
@@ -671,7 +697,16 @@ async function openSavedSchedule(id) {
 
 /* ================= accounts: saving + calendar link ================= */
 
-async function saveToAccount() {
+// Saves run one after another, so a second download while the first save is
+// still going updates the same schedule instead of creating a duplicate.
+let savingQueue = Promise.resolve();
+function saveToAccount() {
+  savingQueue = savingQueue.then(saveNow, saveNow);
+  return savingQueue;
+}
+
+async function saveNow() {
+  if (!state.user || !state.lastDownload) return;
   const body = {
     name: state.scheduleName ?? `Fall/Winter ${state.academicYear}`,
     academicYear: state.academicYear,
@@ -688,10 +723,15 @@ async function saveToAccount() {
       : await api('/schedules', { method: 'POST', body });
     Object.assign(state, { scheduleId: schedule.id, scheduleName: schedule.name });
     state.saveResult = { ok: true };
-    const { feed } = await api(`/schedules/${schedule.id}/feed`);
-    state.feed = feed;
   } catch (err) {
     state.saveResult = { ok: false, message: err instanceof ApiUnavailable ? "Your account isn't reachable right now, so this schedule wasn't saved. Your downloaded file still works." : err.message };
+  }
+  if (state.saveResult.ok) {
+    try {
+      ({ feed: state.feed } = await api(`/schedules/${state.scheduleId}/feed`));
+    } catch {
+      state.feed = null;  // the schedule is saved; the link part just couldn't load
+    }
   }
   renderAccountDone();
 }
@@ -854,9 +894,18 @@ const SIGN_IN_ERRORS = {
   expired: 'That sign-in took too long or was interrupted. Please try again.',
   email_taken: 'An account with that email already exists. Sign in with your email and password instead.',
   no_email: "That account didn't share an email address, so Slotted can't create an account with it.",
+  unverified_email: "Google hasn't confirmed the email on that account yet, so Slotted can't use it. Confirm it with Google, or sign up with your email and a password.",
   unavailable: "That sign-in option isn't available right now.",
   failed: 'Something went wrong signing in. Please try again.',
 };
+// The API said the sign-in has ended (expired, or signed out somewhere else).
+window.addEventListener('slotted:signed-out', () => {
+  if (!state.user) return;
+  signedOut();
+  show('welcome');
+  welcomeMessage('Your sign-in has ended. Please sign in again.');
+});
+
 if (signInError) {
   welcomeMessage(SIGN_IN_ERRORS[signInError] ?? SIGN_IN_ERRORS.failed);
   state.started = false;

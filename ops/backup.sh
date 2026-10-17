@@ -38,6 +38,7 @@ while true; do
     sleep "$RETRY_SECONDS"
     continue
   fi
-  find /backups -name 'calendar_*.dump' -mtime +"$KEEP_DAYS" -delete
+  # Also clears out half-written files left by a stop or reboot in the middle of a backup.
+  find /backups \( -name 'calendar_*.dump' -o -name 'calendar_*.dump.partial' \) -mtime +"$KEEP_DAYS" -delete
   sleep "$INTERVAL_SECONDS"
 done

@@ -72,9 +72,14 @@ app.get('/demo.ics', async (req, res) => {
 });
 
 // If any route throws, answer with a clean error instead of crashing.
+// Problems with the request itself (bad JSON, too large) keep their 4xx status.
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'Something went wrong' });
+  if (res.headersSent) return next(err);
+  const status = err.status >= 400 && err.status < 500 ? err.status : 500;
+  if (status === 500) console.error(err);
+  const message = status === 413 ? 'That is too much data to save.'
+    : status === 500 ? 'Something went wrong' : 'That request could not be read.';
+  res.status(status).json({ error: message });
 });
 
 const port = Number(process.env.PORT) || 3000;

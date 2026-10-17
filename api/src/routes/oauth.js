@@ -112,7 +112,8 @@ oauthRouter.get('/:provider/callback', async (req, res) => {
     const email = typeof info.email === 'string' ? info.email.trim().toLowerCase() : null;
 
     const userId = await findOrCreateUser(name, info.sub, email, provider.trustEmail(info), info.name);
-    if (!userId) return backToSite(res, email ? 'email_taken' : 'no_email');
+    if (userId === 'unverified') return backToSite(res, 'unverified_email');
+    if (!userId) return backToSite(res, 'no_email');
 
     await regenerateSession(req);
     req.session.userId = userId;
@@ -132,18 +133,15 @@ async function findOrCreateUser(provider, providerUserId, email, emailTrusted, n
   );
   if (linked.rows[0]) return linked.rows[0].user_id;
   if (!email) return null;
+  // Google says it hasn't confirmed this person owns the email: don't create or
+  // link an account with it, or they could claim someone else's address.
+  if (!emailTrusted) return 'unverified';
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const existing = await client.query('SELECT id FROM users WHERE email = $1', [email]);
     let userId = existing.rows[0]?.id;
-    if (userId && !emailTrusted) {
-      // An account already uses this email, and we can't be sure this person
-      // owns it, so don't attach them to it.
-      await client.query('ROLLBACK');
-      return null;
-    }
     if (userId) {
       // Linking Google to an account that already uses this (Google-verified)
       // email. Someone else could have registered this email earlier with a

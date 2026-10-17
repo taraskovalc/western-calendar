@@ -117,12 +117,12 @@ The button appears on the site by itself once the settings are there. If someone
 
 ```bash
 node --test shared/ics.test.js      # .ics builder tests
-cp .env.example .env               # fill in the required values
+cp .env.example .env               # fill in the required values (see below)
 docker compose up -d db api        # API on http://localhost:3000
-cd web && python3 -m http.server 8000   # webpage on http://localhost:8000
+python3 -m http.server 8000        # run from the project folder, then open http://localhost:8000/web/
 ```
 
-For local testing, add `http://localhost:8000` to `ALLOWED_ORIGINS` and set `COOKIE_SECURE=false`.
+Run the web server from the project folder (not `web/`), because the page loads `../shared/`. On `localhost` the page talks to the API at `http://localhost:3000` by itself. In the local `.env`, set `ALLOWED_ORIGINS=http://localhost:8000`, `COOKIE_SECURE=false` and `PUBLIC_API_URL=http://localhost:3000`.
 
 ## Server upkeep
 

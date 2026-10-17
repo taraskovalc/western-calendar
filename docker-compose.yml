@@ -16,7 +16,7 @@ services:
       - db-data:/var/lib/postgresql/data
     healthcheck:
       # "Is the database ready to accept connections yet?"
-      test: ["CMD-SHELL", "pg_isready -U calendar -d calendar"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U calendar -d calendar"]  # over the network, like the API connects
       interval: 5s
       timeout: 3s
       retries: 10

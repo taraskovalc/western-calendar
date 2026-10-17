@@ -18,7 +18,7 @@ const registerSchema = z.object({
   email,
   // Long beats complicated: a 10+ character minimum, no forced symbols.
   password: z.string().min(10, 'Password must be at least 10 characters').max(200),
-  displayName: z.string().trim().min(1).max(60).optional(),
+  displayName: z.string().trim().max(60).optional().transform(v => v || undefined),  // blank = no name
   theme: z.enum(['light', 'dark']).optional(),
 });
 const loginSchema = z.object({
@@ -27,19 +27,23 @@ const loginSchema = z.object({
 });
 
 /* ---------- rate limits ---------- */
-// Max 5 FAILED logins per 15 minutes from one address. Successful ones don't count.
+// Max 5 FAILED logins per 15 minutes for one email from one address. Successful
+// ones don't count. Counting per email too means students sharing a campus
+// network don't lock each other out.
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,
   skipSuccessfulRequests: true,
+  keyGenerator: req => `${req.ip}|${String(req.body?.email ?? '').trim().toLowerCase()}`,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many failed attempts. Try again in 15 minutes.' },
 });
-// Max 10 new accounts per hour from one address (stops bots mass-creating accounts).
+// Max 50 new accounts per hour from one address (stops bots mass-creating
+// accounts, while leaving room for many students on one campus network).
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  limit: 10,
+  limit: 50,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many accounts created. Try again later.' },
@@ -178,13 +182,24 @@ const SITE_URL = (process.env.SITE_URL || 'https://slotted.taraskoval.ca').repla
 const RESET_MINUTES = 60;
 const sha256 = text => crypto.createHash('sha256').update(text).digest('hex');
 
-// Max 5 reset emails per hour from one address (stops someone flooding inboxes).
+// Max 10 reset emails per hour from one address (stops someone flooding inboxes).
 const forgotLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  limit: 5,
+  limit: 10,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many reset requests. Try again later.' },
+});
+
+// Choosing a new password from an emailed link has its own limit, so someone
+// locked out by failed logins can still reset (bad links count, good ones don't).
+const resetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Try again in 15 minutes.' },
 });
 
 // POST /auth/forgot   { email }
@@ -232,7 +247,7 @@ const resetSchema = z.object({
   password: z.string().min(10, 'Password must be at least 10 characters').max(200),
 });
 
-authRouter.post('/reset', loginLimiter, async (req, res) => {
+authRouter.post('/reset', resetLimiter, async (req, res) => {
   const { data, errors } = validate(resetSchema, req.body);
   if (errors) return res.status(400).json({ errors });
 

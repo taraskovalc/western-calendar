@@ -173,6 +173,7 @@ export function buildCalendar({
   ];
   const added = [];
   const skipped = [];
+  const seen = new Set();   // the same class listed twice is only added once
 
   for (const course of courses) {
     const code = `${course.subject} ${course.number}`;
@@ -198,8 +199,12 @@ export function buildCalendar({
         // UNTIL is in UTC: 03:59:59Z the next day = after any class, in EST or EDT.
         const until = ymd(addDays(toDate(term.ends_on), 1)) + 'T035959Z';
 
+        // Everything that makes this event different from the others goes into
+        // its UID, so two events in one calendar can never share one.
         const uidSource = [code, course.component, course.section, meeting.days.join(''),
-          meeting.start, season, term.starts_on].join('|');
+          meeting.start, meeting.end, meeting.room ?? '', season, term.starts_on].join('|');
+        if (seen.has(uidSource)) continue;
+        seen.add(uidSource);
         const details = [course.title, `${course.component} section ${course.section}`];
         if (course.instructor && course.instructor.toLowerCase() !== 'staff') details.push(`Instructor: ${course.instructor}`);
         if (course.classNbr) details.push(`Class Nbr: ${course.classNbr}`);
