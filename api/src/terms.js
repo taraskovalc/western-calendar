@@ -8,7 +8,7 @@ export async function getTerms(academicYear) {
   // pg turns each one into a JavaScript Date (our date fix in db.js only
   // covers single dates, not lists of dates).
   const { rows } = await pool.query(
-    `SELECT season, starts_on, ends_on, no_class_dates::text[] AS no_class_dates
+    `SELECT season, starts_on, ends_on, no_class_dates::text[] AS no_class_dates, quarters
        FROM terms
       WHERE academic_year = $1
       ORDER BY starts_on`,

@@ -49,10 +49,20 @@ export function readSchedule(html) {
     throw new ScheduleReadError("This file doesn't contain a DraftMySchedule class list.");
   }
 
-  // "Class List for ... - Fall/Winter 2026" -> school year "2026-27"
-  const yearMatch = /Fall\/Winter\s+(\d{4})/i.exec(doc.body?.textContent ?? '');
-  const academicYear = yearMatch
-    ? `${yearMatch[1]}-${String((Number(yearMatch[1]) + 1) % 100).padStart(2, '0')}`
+  // The heading "Class List for <name> - Fall/Winter 2026" says which session
+  // this is. (Read the heading, not the first "Fall/Winter" on the page: the
+  // term menu near the top lists other years too.)
+  const pageText = clean(doc.body?.textContent ?? '');
+  const heading = /Class List for [\s\S]*?-\s*(Fall\/Winter|Summer|Intersession)\s+(\d{4})/i.exec(pageText);
+  if (heading && !/^Fall\/Winter$/i.test(heading[1])) {
+    const err = new ScheduleReadError(`This is your ${heading[1]} ${heading[2]} schedule. Slotted only works with Fall/Winter schedules. In DraftMySchedule, switch the term to Fall/Winter, then save the My Current Schedule page again.`);
+    err.complete = true;  // the message already says what to do
+    throw err;
+  }
+  const startYear = heading?.[2] ?? /Fall\/Winter\s+(\d{4})/i.exec(pageText)?.[1];
+  // "2026" -> school year "2026-27"
+  const academicYear = startYear
+    ? `${startYear}-${String((Number(startYear) + 1) % 100).padStart(2, '0')}`
     : null;
 
   const headers = [...table.rows[0].cells].map(cellText);
@@ -69,7 +79,7 @@ export function readSchedule(html) {
     const subject = text(row, 'Subject').toUpperCase().replace(/[^A-Z]/g, '');
     const number = text(row, 'Course Number').toUpperCase();
     if (!subject) continue;
-    if (!/^[A-Z]{2,10}$/.test(subject) || !/^\d{4}[A-Z]$/.test(number)) {
+    if (!/^[A-Z]{2,10}$/.test(subject) || !/^\d{4}[A-Z]?$/.test(number)) {
       notes.push(`Skipped a row that didn't look like a course (${clip(`${subject} ${number}`, 30)}).`);
       continue;
     }

@@ -303,6 +303,9 @@ kbd { font: 13px var(--sans); padding: 1px 6px; border: 1px solid var(--line); b
 }
 .block-code { font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .block-meta { color: var(--muted); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Side-by-side blocks (classes at the same time): let the text wrap instead of cutting it off. */
+.block.narrow { padding: 4px 5px; font-size: 11px; }
+.block.narrow .block-code, .block.narrow .block-meta { white-space: normal; overflow-wrap: break-word; }
 @keyframes stick { from { opacity: 0; transform: translateY(-10px) rotate(-3deg) scale(.96); } }
 .week-empty { grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--muted); }
 
@@ -362,6 +365,8 @@ legend { font-weight: 600; margin-bottom: 10px; }
 .instructions li::before { content: counter(steps); position: absolute; left: 4px; top: -4px; font: 700 32px/1 var(--hand); color: var(--accent); }
 .instructions li b { color: var(--ink); }
 .check-note { margin: 30px auto 0; max-width: 60ch; text-align: center; color: var(--muted); font-size: 15px; }
+.report-note { margin-top: 10px; }
+.report-note a { color: var(--accent-ink); text-underline-offset: 3px; }
 
 /* ---------- footer ---------- */
 .footer { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 44px 16px 56px; color: var(--muted); font-size: 14px; }

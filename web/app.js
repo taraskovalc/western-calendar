@@ -2,7 +2,7 @@
 // Rule used throughout: text from the schedule file is only ever shown with
 // textContent (never innerHTML), so it can't inject anything into the page.
 import { readSchedule, ScheduleReadError } from './parser.js';
-import { buildCalendar, seasonsFor } from '../shared/ics.js';
+import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced } from '../shared/ics.js';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
 
@@ -43,6 +43,7 @@ function el(tag, { className, text, attrs } = {}, children = []) {
 const minutes = hhmm => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3));
 const plural = (n, word, many = `${word}s`) => `${n.toLocaleString()} ${n === 1 ? word : many}`;
 const clock = hhmm => { const h = Number(hhmm.slice(0, 2)); return `${h % 12 || 12}:${hhmm.slice(3)} ${h < 12 ? 'AM' : 'PM'}`; };
+const shortDate = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const longDate = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const courseKey = c => `${c.subject} ${c.number}`;
 const chosen = name => document.querySelector(`input[name="${name}"]:checked`)?.value ?? null;
@@ -274,7 +275,8 @@ async function handleFile(file) {
   } catch (err) {
     if (!(err instanceof ScheduleReadError)) console.error(err);
     const reason = err instanceof ScheduleReadError ? err.message : 'The file could not be read.';
-    setStatus(`${reason} Make sure you saved the My Current Schedule page (step 2 above), not Build Future Draft, then try again.`, 'error');
+    // Some messages already say exactly what to do; the rest get the usual tip.
+    setStatus(err.complete ? reason : `${reason} Make sure you saved the My Current Schedule page (step 2 above), not Build Future Draft, then try again.`, 'error');
     return;
   }
 
@@ -325,16 +327,35 @@ function renderCheck(notes) {
   const hasTime = c => c.meetings.some(m => m.start && m.days.length);
   const timed = state.courses.filter(hasTime);
   const untimed = state.courses.filter(c => !hasTime(c));
+  const unplaced = timed.filter(c => whyNotPlaced(c.number));
   $('#found-summary').textContent =
     `${plural(new Set(state.courses.map(courseKey)).size, 'course')} and ${plural(timed.length, 'lecture, lab or tutorial', 'lectures, labs and tutorials')} with set times. Compare this week with DraftMySchedule before you download.`;
   state.tab = meetingsFor('fall').length ? 'fall' : 'winter';
   renderWeek();
 
-  $('#not-added').replaceChildren(...untimed.map(c =>
-    el('li', { text: `${courseKey(c)} ${c.component}${c.title ? ` (${c.title})` : ''}: ${c.delivery || 'no set day or time'}, so there's no time to place it at.` })));
-  $('#extra-notes').hidden = untimed.length === 0;
-  $('#notes-list').replaceChildren(...notes.map(n => el('li', { text: n })));
-  $('#read-notes').hidden = notes.length === 0;
+  $('#not-added').replaceChildren(
+    ...untimed.map(c =>
+      el('li', { text: `${courseKey(c)} ${c.component}${c.title ? ` (${c.title})` : ''}: ${c.delivery || 'no set day or time'}, so there's no time to place it at.` })),
+    ...unplaced.map(c =>
+      el('li', { text: `${courseKey(c)} ${c.component}${c.title ? ` (${c.title})` : ''} ${whyNotPlaced(c.number)}. Add it to your calendar yourself.` })));
+  $('#extra-notes').hidden = untimed.length + unplaced.length === 0;
+
+  const allNotes = [...notes];
+  // Quarter courses only run for six weeks; say which weeks.
+  const quarterCodes = new Map();
+  for (const c of timed) {
+    const [period] = periodsFor(c.number, state.terms);
+    if (period?.quarter) quarterCodes.set(courseKey(c), period);
+  }
+  for (const [code, period] of quarterCodes) {
+    allNotes.push(`${code} is a six-week course, so it's only added from ${longDate(period.starts_on)} to ${longDate(period.ends_on)}.`);
+  }
+  // Labs and tutorials are listed as weekly, even when they don't meet every week.
+  if (timed.some(c => ['LAB', 'TUT'].includes(c.component))) {
+    allNotes.push("Labs and tutorials are added every week, because DraftMySchedule doesn't say which weeks they skip. If yours doesn't meet every week, check your course outline and delete the weeks you don't have.");
+  }
+  $('#notes-list').replaceChildren(...allNotes.map(n => el('li', { text: n })));
+  $('#read-notes').hidden = allNotes.length === 0;
 }
 
 function renderWeek() {
@@ -376,13 +397,41 @@ function renderWeek() {
     node.style.setProperty('--edge-c', `var(--e${c})`);
     return node;
   };
-  const columns = days.map(day => el('div', { className: 'week-col' }, byDay(day).map(({ course, meeting }) => {
-    const block = colour(el('div', { className: 'block', attrs: { title: `${courseKey(course)} ${course.component} · ${clock(meeting.start)}–${clock(meeting.end)} · ${meeting.room}` } }, [
+  // Six-week courses (Q/R/S/T) say which weeks, e.g. "Sep 9–Oct 28".
+  const weeksOf = course => {
+    const [period] = periodsFor(course.number, state.terms);
+    return period?.quarter ? `${shortDate(period.starts_on)}–${shortDate(period.ends_on)}` : '';
+  };
+  // Classes that overlap in time (like two six-week courses in the same slot)
+  // sit side by side instead of on top of each other.
+  const lanesFor = list => {
+    const laneEnds = [];
+    const placed = list.map(item => {
+      const start = minutes(item.meeting.start);
+      let lane = laneEnds.findIndex(end => end <= start);
+      if (lane === -1) { lane = laneEnds.length; laneEnds.push(0); }
+      laneEnds[lane] = minutes(item.meeting.end);
+      return { ...item, lane };
+    });
+    return placed.map(item => ({
+      ...item,
+      lanes: 1 + Math.max(...placed.filter(o => minutes(o.meeting.start) < minutes(item.meeting.end)
+        && minutes(item.meeting.start) < minutes(o.meeting.end)).map(o => o.lane)),
+    }));
+  };
+  const columns = days.map(day => el('div', { className: 'week-col' }, lanesFor(byDay(day)).map(({ course, meeting, lane, lanes }) => {
+    const weeks = weeksOf(course);
+    const block = colour(el('div', { className: 'block', attrs: { title: `${courseKey(course)} ${course.component} · ${clock(meeting.start)}–${clock(meeting.end)} · ${meeting.room}${weeks ? ` · ${weeks} only` : ''}` } }, [
       el('span', { className: 'block-code', text: `${courseKey(course)} ${course.component}` }),
-      el('span', { className: 'block-meta', text: `${clock(meeting.start)} · ${meeting.room || 'No room'}` }),
+      el('span', { className: 'block-meta', text: weeks ? `${weeks} · ${meeting.room || 'No room'}` : `${clock(meeting.start)} · ${meeting.room || 'No room'}` }),
     ]), course);
     block.style.top = `${((minutes(meeting.start) - startHour * 60) / span) * 100}%`;
     block.style.height = `calc(${((minutes(meeting.end) - minutes(meeting.start)) / span) * 100}% - 4px)`;
+    if (lanes > 1) {
+      block.classList.add('narrow');
+      block.style.left = `calc(${(lane / lanes) * 100}% + 3px)`;
+      block.style.right = `calc(${((lanes - lane - 1) / lanes) * 100}% + 3px)`;
+    }
     block.style.setProperty('--tilt', `${((order * 37) % 5 - 2) * 0.35}deg`);  // a slight, varied tilt like real sticky notes
     block.style.animationDelay = `${Math.min(order++ * 35, 600)}ms`;
     return block;
@@ -394,7 +443,7 @@ function renderWeek() {
   $('#day-list').replaceChildren(...days.filter(d => byDay(d).length).map(day => el('section', { className: 'day' }, [
     el('h4', { className: 'day-name', text: DAY_NAMES[day] }),
     el('ul', {}, byDay(day).map(({ course, meeting }) => colour(el('li', { className: 'day-item' }, [
-      el('span', { className: 'day-time', text: `${clock(meeting.start)} – ${clock(meeting.end)}` }),
+      el('span', { className: 'day-time', text: `${clock(meeting.start)} – ${clock(meeting.end)}${weeksOf(course) ? ` (${weeksOf(course)} only)` : ''}` }),
       el('span', { className: 'day-course', text: `${courseKey(course)} ${course.component}` }),
       el('span', { className: 'day-room', text: meeting.room || 'No room listed' }),
     ]), course))),
@@ -409,9 +458,7 @@ function summarize(include) {
   let next = null;
   const todayIso = new Date().toISOString().slice(0, 10);
   for (const course of state.courses) {
-    for (const season of seasonsFor(course.number).filter(s => include === 'both' || include === s)) {
-      const term = state.terms.find(t => t.season === season);
-      if (!term) continue;
+    for (const term of periodsFor(course.number, state.terms, include)) {
       for (const meeting of course.meetings) {
         if (!meeting.start || !meeting.days.length) continue;
         const weekdays = meeting.days.map(d => DAY_INDEX[d]);
@@ -430,7 +477,15 @@ function summarize(include) {
 }
 
 function updateDownloadDetail() {
-  $('#download-detail').textContent = `${plural(summarize(chosen('include')).total, 'class', 'classes')} will go into your calendar`;
+  const total = summarize(chosen('include')).total;
+  // Nothing to add (for example every course is online): say so instead of
+  // offering an empty calendar file.
+  $('#download').disabled = total === 0;
+  $('#download-detail').textContent = total
+    ? `${plural(total, 'class', 'classes')} will go into your calendar`
+    : chosen('include') === 'both'
+      ? 'None of your classes have a set day and time, so there\'s nothing to add to a calendar.'
+      : 'No classes with set times in this term. Try "Both" or the other term.';
 }
 document.querySelectorAll('input[name="include"]').forEach(r => r.addEventListener('change', updateDownloadDetail));
 

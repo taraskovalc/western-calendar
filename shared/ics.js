@@ -18,11 +18,22 @@ const DAYS = { Su: 0, M: 1, Tu: 2, W: 3, Th: 4, F: 5, Sa: 6 };
 const ICAL_DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 
 // The letter at the end of a Western course number says when it runs.
-const SUFFIX_SEASONS = {
-  A: ['fall'], F: ['fall'], Q: ['fall'], R: ['fall'],
-  B: ['winter'], G: ['winter'], S: ['winter'], T: ['winter'],
-  E: ['fall', 'winter'], Y: ['fall', 'winter'], Z: ['fall', 'winter'],
+// Source: Western's Academic Calendar, "Course Numbering".
+//   no letter, E          full course: fall + winter
+//   A, F, W               first term (fall)        (W = accelerated full course)
+//   B, G, X               second term (winter)     (X = accelerated full course)
+//   Q, R                  6-week quarter: first / second half of fall
+//   S, T                  6-week quarter: first / second half of winter
+//   Y, Z, U, L            outside the regular Fall/Winter session (e.g. summer)
+//   anything else         unusual (Law, Nursing, Education); we can't tell, so we say so
+const SUFFIX_RUNS = {
+  '': ['fall', 'winter'], E: ['fall', 'winter'],
+  A: ['fall'], F: ['fall'], W: ['fall'], Q: ['fall'], R: ['fall'],
+  B: ['winter'], G: ['winter'], X: ['winter'], S: ['winter'], T: ['winter'],
 };
+const QUARTERS = new Set(['Q', 'R', 'S', 'T']);
+const OUTSIDE_SESSION = new Set(['Y', 'Z', 'U', 'L']);
+const suffixOf = courseNumber => (/[A-Z]$/i.test(courseNumber) ? courseNumber.slice(-1).toUpperCase() : '');
 
 const TIMEZONE = `BEGIN:VTIMEZONE
 TZID:America/Toronto
@@ -63,7 +74,7 @@ function hhmmss(time) {               // '14:30' -> '143000'
 // iCalendar treats , ; \ and newlines as special, so they must be escaped.
 function escapeText(text) {
   return String(text)
-    .replaceAll('\\', '\\\\').replaceAll(';', '\;')
+    .replaceAll('\\', '\\\\').replaceAll(';', '\\;')
     .replaceAll(',', '\\,').replaceAll('\n', '\\n');
 }
 
@@ -99,7 +110,38 @@ function stableId(text) {
 }
 
 export function seasonsFor(courseNumber) {
-  return SUFFIX_SEASONS[courseNumber.slice(-1).toUpperCase()] ?? [];
+  return SUFFIX_RUNS[suffixOf(courseNumber)] ?? [];
+}
+
+// Why a course can't be placed in Fall/Winter, or null if it can.
+export function whyNotPlaced(courseNumber) {
+  const letter = suffixOf(courseNumber);
+  if (SUFFIX_RUNS[letter]) return null;
+  if (OUTSIDE_SESSION.has(letter)) return 'runs outside the Fall/Winter terms (for example in summer)';
+  return `has an unusual course letter (${letter}), so Slotted can't tell which term it's in`;
+}
+
+// The stretches of time a course runs in, as term-shaped objects
+// { season, starts_on, ends_on, no_class_dates }. Usually one or two whole
+// terms; a quarter course (Q/R/S/T) gets just its six weeks, using the
+// term's "quarters" dates when they are known.
+export function periodsFor(courseNumber, terms, include = 'both') {
+  const letter = suffixOf(courseNumber);
+  const out = [];
+  for (const season of seasonsFor(courseNumber)) {
+    if (include !== 'both' && include !== season) continue;
+    const term = terms.find(t => t.season === season);
+    if (!term) continue;
+    const quarter = QUARTERS.has(letter) ? term.quarters?.[letter] : null;
+    if (quarter) {
+      const [starts, ends] = quarter;
+      out.push({ ...term, starts_on: starts, ends_on: ends, quarter: letter,
+        no_class_dates: (term.no_class_dates ?? []).filter(d => d >= starts && d <= ends) });
+    } else {
+      out.push(term);
+    }
+  }
+  return out;
 }
 
 /* ---------- the main function ---------- */
@@ -119,7 +161,6 @@ export function buildCalendar({
   courses, terms, include = 'both', alarmMinutes = 0,
   calendarName = 'Western Classes', now = new Date(), refreshHours = null,
 }) {
-  const termBySeason = Object.fromEntries(terms.map(t => [t.season, t]));
   const stamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
   const lines = [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Taras Koval//Western Calendar//EN',
@@ -135,9 +176,8 @@ export function buildCalendar({
 
   for (const course of courses) {
     const code = `${course.subject} ${course.number}`;
-    const seasons = seasonsFor(course.number)
-      .filter(season => include === 'both' || include === season)
-      .filter(season => termBySeason[season]);
+    const periods = periodsFor(course.number, terms, include);
+    const notPlaced = whyNotPlaced(course.number);
 
     for (const meeting of course.meetings ?? []) {
       const weekdays = (meeting.days ?? []).map(d => DAYS[d]).filter(d => d !== undefined);
@@ -145,9 +185,13 @@ export function buildCalendar({
         skipped.push({ code, component: course.component, reason: course.delivery || 'No set time' });
         continue;
       }
+      if (notPlaced) {
+        skipped.push({ code, component: course.component, reason: notPlaced });
+        continue;
+      }
 
-      for (const season of seasons) {
-        const term = termBySeason[season];
+      for (const term of periods) {
+        const season = term.season;
         // First class = first matching weekday on or after the term's first day.
         let first = toDate(term.starts_on);
         while (!weekdays.includes(first.getUTCDay())) first = addDays(first, 1);

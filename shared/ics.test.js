@@ -2,13 +2,15 @@
 // Uses made-up classes so no real schedule is ever committed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCalendar, seasonsFor } from './ics.js';
+import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced } from './ics.js';
 
 const terms = [
   { season: 'fall', starts_on: '2026-09-09', ends_on: '2026-12-09',
-    no_class_dates: ['2026-09-30', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16'] },
+    no_class_dates: ['2026-09-30', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16'],
+    quarters: { Q: ['2026-09-09', '2026-10-28'], R: ['2026-10-29', '2026-12-09'] } },
   { season: 'winter', starts_on: '2027-01-04', ends_on: '2027-04-09',
-    no_class_dates: ['2027-02-15', '2027-02-16', '2027-02-17', '2027-02-18', '2027-02-19', '2027-03-26'] },
+    no_class_dates: ['2027-02-15', '2027-02-16', '2027-02-17', '2027-02-18', '2027-02-19', '2027-03-26'],
+    quarters: { S: ['2027-01-04', '2027-02-12'], T: ['2027-02-22', '2027-04-09'] } },
 ];
 const fallClass = {
   subject: 'TEST', number: '1000A', component: 'LEC', section: '001', title: 'Testing, Part I',
@@ -71,4 +73,45 @@ test('subscriptions get a refresh hint; downloads do not', () => {
   assert.match(feed, /REFRESH-INTERVAL;VALUE=DURATION:PT6H/);
   assert.match(feed, /X-PUBLISHED-TTL:PT6H/);
   assert.doesNotMatch(file, /REFRESH-INTERVAL/);
+});
+
+test('every Western course letter is handled', () => {
+  assert.deepEqual(seasonsFor('1020'), ['fall', 'winter']);   // no letter = full year
+  assert.deepEqual(seasonsFor('1030W'), ['fall']);            // accelerated, first term
+  assert.deepEqual(seasonsFor('1030X'), ['winter']);          // accelerated, second term
+  assert.deepEqual(seasonsFor('2100F'), ['fall']);
+  assert.deepEqual(seasonsFor('2100G'), ['winter']);
+  assert.deepEqual(seasonsFor('3000Y'), []);                  // outside Fall/Winter
+  assert.match(whyNotPlaced('3000Y'), /outside the Fall\/Winter/);
+  assert.match(whyNotPlaced('5000V'), /unusual course letter \(V\)/);
+  assert.equal(whyNotPlaced('1000A'), null);
+});
+
+test('quarter courses only get their six weeks', () => {
+  const [q] = periodsFor('1500Q', terms);
+  assert.equal(q.starts_on, '2026-09-09');
+  assert.equal(q.ends_on, '2026-10-28');
+  assert.deepEqual(q.no_class_dates, ['2026-09-30', '2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16']);
+  const [t] = periodsFor('1500T', terms);
+  assert.equal(t.starts_on, '2027-02-22');
+  assert.deepEqual(t.no_class_dates, ['2027-03-26']);
+  const { ics } = buildCalendar({ courses: [{ ...fallClass, number: '1500R' }], terms, now: fixedNow });
+  assert.match(ics, /DTSTART;TZID=America\/Toronto:20261102T143000/);   // Oct 29 is a Thursday, so the first Mon/Wed is Nov 2
+});
+
+test('full-year courses with no letter fill both terms', () => {
+  const { added } = buildCalendar({ courses: [{ ...fallClass, number: '1020' }], terms, now: fixedNow });
+  assert.deepEqual(added.map(a => a.season), ['fall', 'winter']);
+});
+
+test('courses outside Fall/Winter are reported, not dropped silently', () => {
+  const { added, skipped } = buildCalendar({ courses: [{ ...fallClass, number: '3000Y' }], terms, now: fixedNow });
+  assert.equal(added.length, 0);
+  assert.equal(skipped.length, 1);
+  assert.match(skipped[0].reason, /outside the Fall\/Winter/);
+});
+
+test('semicolons in text are escaped', () => {
+  const { ics } = buildCalendar({ courses: [{ ...fallClass, title: 'Labs; Lectures' }], terms, now: fixedNow });
+  assert.match(ics, /Labs\\; Lectures/);
 });

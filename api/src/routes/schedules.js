@@ -31,7 +31,7 @@ const meetingSchema = z.object({
 
 const courseSchema = z.object({
   subject: z.string().regex(/^[A-Z]{2,10}$/, 'Subject must be capital letters, like COMPSCI'),
-  number: z.string().regex(/^\d{4}[A-Z]$/, 'Course number must look like 2211A'),
+  number: z.string().regex(/^\d{4}[A-Z]?$/, 'Course number must look like 2211A or 1020'),
   component: z.string().regex(/^[A-Z]{2,4}$/, 'Component must look like LEC or LAB'),
   section: z.string().regex(/^[0-9A-Z]{1,4}$/, 'Section must look like 001'),
   title: text(100),

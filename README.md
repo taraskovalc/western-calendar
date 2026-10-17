@@ -79,8 +79,8 @@ The backups are on the same machine as the database, so they protect against mis
 
 Western publishes the next year's dates at https://www.westerncalendar.uwo.ca/sessionaldates.cfm, usually in the spring. When they're out:
 
-1. **`shared/terms.js`**: add the new year to `TERM_DATES` (first and last day of classes for fall and winter, plus every no-class weekday) and change `LATEST_YEAR`.
-2. **New migration** `api/migrations/00N_terms_2027_28.sql`, copying the format of `002_terms_2026_27.sql`, with the same dates.
+1. **`shared/terms.js`**: add the new year to `TERM_DATES` (first and last day of classes for fall and winter, every no-class weekday, and the `quarters` dates for 6-week Q/R/S/T courses) and change `LATEST_YEAR`.
+2. **New migration** `api/migrations/00N_terms_2027_28.sql`, copying the format of `002_terms_2026_27.sql` plus the `quarters` column from `007_quarter_dates.sql`, with the same dates.
 3. Check that both files have the same dates, push, then update the server as above.
 
 Keep the old year in both places until that school year is over.
