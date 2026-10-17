@@ -12,3 +12,8 @@ pg.types.setTypeParser(DATE_TYPE_ID, value => value);
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
 });
+
+// If the database restarts, idle connections in the pool break. Without this
+// listener Node treats that as an unhandled error and the whole API exits.
+// The pool simply opens fresh connections on the next request.
+pool.on('error', err => console.error('Idle database connection failed:', err.message));

@@ -437,9 +437,9 @@ function renderWeek() {
     return block;
   })));
   week.replaceChildren(...header, times, ...columns);
-  week.setAttribute('aria-label', `${state.tab} term timetable: ${items.length} weekly class times`);
 
-  // Phones: the same classes as a list per day.
+  // The same classes as a list per day: shown on phones, and read out by
+  // screen readers on every screen size (the timetable above is visual only).
   $('#day-list').replaceChildren(...days.filter(d => byDay(d).length).map(day => el('section', { className: 'day' }, [
     el('h4', { className: 'day-name', text: DAY_NAMES[day] }),
     el('ul', {}, byDay(day).map(({ course, meeting }) => colour(el('li', { className: 'day-item' }, [

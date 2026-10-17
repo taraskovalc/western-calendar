@@ -309,7 +309,9 @@ kbd { font: 13px var(--sans); padding: 1px 6px; border: 1px solid var(--line); b
 @keyframes stick { from { opacity: 0; transform: translateY(-10px) rotate(-3deg) scale(.96); } }
 .week-empty { grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--muted); }
 
-.day-list { display: none; }
+/* On computers the timetable is shown and this list is only for screen readers;
+   on phones (below) the list is shown instead. */
+.day-list { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: -1px; }
 .day + .day { margin-top: 16px; }
 .day-name { margin-bottom: 6px; font: 700 26px/1 var(--hand); }
 .day ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -389,7 +391,7 @@ legend { font-weight: 600; margin-bottom: 10px; }
   .page-body { padding: 28px 16px 36px 50px; }
   .apps, .options, .stickies { grid-template-columns: 1fr; }
   .week-wrap { display: none; }
-  .day-list { display: block; }
+  .day-list { display: block; position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; margin: 0; }
   .nav-row { flex-direction: column-reverse; align-items: stretch; }
   .button-ink, .button-plain { width: 100%; }
   .paper-card { padding: 26px 18px; }
@@ -636,4 +638,9 @@ ol.feed-steps { padding-left: 22px; display: grid; gap: 6px; }
   .my-actions { grid-row: auto; grid-column: 1; justify-content: flex-start; }
   .feed-row { flex-direction: column; }
   .account-chip span { display: none; }
+  /* the menu sketch's "click this one" note may wrap, so it never makes the page wider than the phone */
+  .menu-pick { white-space: normal; flex-wrap: wrap; }
 }
+
+/* Confetti may drift past the screen edges; never let that make the page scroll sideways. */
+body { overflow-x: clip; }

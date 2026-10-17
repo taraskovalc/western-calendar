@@ -208,22 +208,20 @@ authRouter.post('/forgot', forgotLimiter, async (req, res) => {
       [sha256(token), user.id, RESET_MINUTES],
     );
     const link = `${SITE_URL}/?reset=${token}`;
-    try {
-      await sendMail({
-        to: user.email,
-        subject: 'Reset your Slotted password',
-        text: `Someone (hopefully you) asked to reset the password for your Slotted account.\n\n`
-          + `Choose a new password here: ${link}\n\n`
-          + `This link works once and expires in ${RESET_MINUTES} minutes. `
-          + `If you didn't ask for this, you can ignore this email; your password hasn't changed.`,
-        html: `<p>Someone (hopefully you) asked to reset the password for your Slotted account.</p>`
-          + `<p><a href="${link}">Choose a new password</a></p>`
-          + `<p>This link works once and expires in ${RESET_MINUTES} minutes. `
-          + `If you didn't ask for this, you can ignore this email; your password hasn't changed.</p>`,
-      });
-    } catch (err) {
-      console.error('Reset email failed:', err.message);
-    }
+    // Send in the background: waiting for the email service here would make the
+    // reply slower only when the account exists, which would give that away.
+    sendMail({
+      to: user.email,
+      subject: 'Reset your Slotted password',
+      text: `Someone (hopefully you) asked to reset the password for your Slotted account.\n\n`
+        + `Choose a new password here: ${link}\n\n`
+        + `This link works once and expires in ${RESET_MINUTES} minutes. `
+        + `If you didn't ask for this, you can ignore this email; your password hasn't changed.`,
+      html: `<p>Someone (hopefully you) asked to reset the password for your Slotted account.</p>`
+        + `<p><a href="${link}">Choose a new password</a></p>`
+        + `<p>This link works once and expires in ${RESET_MINUTES} minutes. `
+        + `If you didn't ask for this, you can ignore this email; your password hasn't changed.</p>`,
+    }).catch(err => console.error('Reset email failed:', err.message));
   }
   res.json({ ok: true });
 });

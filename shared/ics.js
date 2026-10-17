@@ -75,7 +75,7 @@ function hhmmss(time) {               // '14:30' -> '143000'
 function escapeText(text) {
   return String(text)
     .replaceAll('\\', '\\\\').replaceAll(';', '\\;')
-    .replaceAll(',', '\\,').replaceAll('\n', '\\n');
+    .replaceAll(',', '\\,').replace(/\r\n?|\n/g, '\\n');
 }
 
 // Lines may be at most 75 bytes; longer ones continue on the next line after a space.

@@ -62,15 +62,15 @@ After changing `.env`: `docker compose up -d` (it recreates only the containers 
 The `backup` container saves the whole database once a day to `BACKUP_DIR` as `calendar_YYYY-MM-DD_HHMM.dump` and deletes copies older than 14 days.
 
 ```bash
-ls -lh /srv/backups/western-calendar          # see the copies
+sudo ls -lh /srv/backups/western-calendar     # see the copies (only root can read them)
 docker compose logs --tail=5 backup           # "Backup saved: ..."
 ```
 
 Restore one (this replaces what's in the database now):
 
 ```bash
-docker compose exec -T db pg_restore -U calendar -d calendar --clean --if-exists \
-  < /srv/backups/western-calendar/calendar_2026-10-16_0300.dump
+sudo cat /srv/backups/western-calendar/calendar_2026-10-16_0300.dump \
+  | docker compose exec -T db pg_restore -U calendar -d calendar --clean --if-exists
 ```
 
 The backups are on the same machine as the database, so they protect against mistakes and bad updates, not a dead drive. For that, copy the folder somewhere else now and then.
@@ -111,7 +111,7 @@ Set up in the Google Cloud project **Slotted** (console.cloud.google.com).
 4. **Audience → Publish app**, so it says "In production". Otherwise only test users can sign in.
 5. In `.env`: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then `docker compose up -d`. `curl -s https://api.taraskoval.ca/auth/providers` should say `{"google":true}`.
 
-The button appears on the site by itself once the settings are there. If someone signs in with Google and an account with that email already exists, the two are linked, because Google has confirmed the email.
+The button appears on the site by itself once the settings are there. If someone signs in with Google and an account with that email already exists, the two are linked, because Google has confirmed the email. When that happens the account's password is removed and every other signed-in session is ended, in case someone else had registered that email first. The owner can set a password again with "Forgot your password?".
 
 ## Testing on your own computer
 

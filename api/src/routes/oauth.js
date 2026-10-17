@@ -144,7 +144,17 @@ async function findOrCreateUser(provider, providerUserId, email, emailTrusted, n
       await client.query('ROLLBACK');
       return null;
     }
-    if (!userId) {
+    if (userId) {
+      // Linking Google to an account that already uses this (Google-verified)
+      // email. Someone else could have registered this email earlier with a
+      // password they know, so lock them out: remove the password, any reset
+      // links, and every signed-in session. The real owner just proved they own
+      // the email through Google; they can set a password again with "Forgot
+      // your password?" if they want one.
+      await client.query('UPDATE users SET password_hash = NULL WHERE id = $1', [userId]);
+      await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
+      await client.query(`DELETE FROM sessions WHERE sess->>'userId' = $1`, [userId]);
+    } else {
       const created = await client.query(
         'INSERT INTO users (email, display_name) VALUES ($1, $2) RETURNING id',
         [email, typeof name === 'string' ? name.slice(0, 60) : null],

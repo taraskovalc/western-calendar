@@ -115,3 +115,9 @@ test('semicolons in text are escaped', () => {
   const { ics } = buildCalendar({ courses: [{ ...fallClass, title: 'Labs; Lectures' }], terms, now: fixedNow });
   assert.match(ics, /Labs\\; Lectures/);
 });
+
+test('line breaks inside text cannot add extra calendar lines', () => {
+  const { ics } = buildCalendar({ courses: [{ ...fallClass, title: 'Evil\r\nSUMMARY:Hacked\rX' }], terms, now: fixedNow });
+  assert.ok(!ics.includes('\r\nSUMMARY:Hacked'));
+  assert.ok(!/\r(?!\n)/.test(ics));   // no lone carriage returns
+});

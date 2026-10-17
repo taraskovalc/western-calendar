@@ -47,7 +47,7 @@ const fields = {
   courses: z.array(courseSchema).min(1, 'Add at least one class').max(40, 'At most 40 classes'),
   includeTerms: z.enum(['fall', 'winter', 'both']),
   alarmMinutes: z.number().int().min(0).max(120),
-  calendarApp: z.enum(['apple', 'google', 'outlook']).nullable(),
+  calendarApp: z.enum(['apple', 'google', 'outlook', 'other']).nullable(),
 };
 // Creating: name, year and classes are required; settings have defaults.
 const createSchema = z.object({

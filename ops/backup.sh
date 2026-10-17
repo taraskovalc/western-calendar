@@ -8,8 +8,10 @@
 # reboot), it tries again after RETRY_SECONDS instead of waiting a whole day.
 #
 # Restore one with (see README.md):
-#   docker compose exec -T db pg_restore -U calendar -d calendar --clean --if-exists < FILE.dump
+#   sudo cat FILE.dump | docker compose exec -T db pg_restore -U calendar -d calendar --clean --if-exists
 set -eu
+# Backups contain emails and password hashes: only the owner (root) may read them.
+umask 077
 
 KEEP_DAYS="${KEEP_DAYS:-14}"
 INTERVAL_SECONDS="${INTERVAL_SECONDS:-86400}"
