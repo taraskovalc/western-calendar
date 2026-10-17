@@ -62,7 +62,8 @@
         </div>
         <div class="cover-actions">
           <button type="button" class="button-ink button-big" id="open-notebook">Open the notebook →</button>
-          <p class="cover-note">Takes a few minutes. Your schedule file is read on your device, not uploaded.</p>
+          <p class="cover-note">About five minutes, start to finish. Your schedule file is read on your device, not uploaded.</p>
+          <p class="cover-note phone-note" data-phone-note hidden></p>
         </div>
       </div>
     </section>
@@ -86,32 +87,36 @@
         <!-- =================== 1. Welcome =================== -->
         <section class="view view-centered" id="view-welcome" aria-labelledby="welcome-title" tabindex="-1">
           <h2 id="welcome-title">Sign in, or jump straight in</h2>
-          <p class="lede welcome-lede">An account is optional. You can make your calendar file either way.</p>
+          <p class="lede welcome-lede" id="welcome-lede">An account is optional. You can make your calendar file either way.</p>
+          <p class="phone-note-card" data-phone-note hidden></p>
 
-          <div class="intro-diagram" aria-hidden="true">
-            <div class="mini-panel">
-              <p class="mini-tag">your DraftMySchedule page</p>
-              <table class="mini-table">
-                <tr><td>Course</td><td>Days</td><td>Time</td><td>Room</td></tr>
-                <tr><td>MATH 1000</td><td>M W F</td><td>9:30</td><td>NCB-113</td></tr>
-                <tr><td>ENGLISH 1020</td><td>Tu Th</td><td>11:30</td><td>UC-1225</td></tr>
-                <tr><td>CHEM 1301</td><td>F</td><td>12:30</td><td>CHB-9</td></tr>
-                <tr><td>BIOLOGY 1001</td><td>M W</td><td>1:30</td><td>BGS-0153</td></tr>
-                <tr><td>HISTORY 1401</td><td>Tu Th</td><td>3:30</td><td>SSC-2050</td></tr>
-              </table>
+          <div id="welcome-intro">
+            <div class="intro-diagram" aria-hidden="true">
+              <div class="mini-panel">
+                <p class="mini-tag">your DraftMySchedule page</p>
+                <table class="mini-table">
+                  <tr><td>Course</td><td>Days</td><td>Time</td><td>Room</td></tr>
+                  <tr><td>MATH 1000</td><td>M W F</td><td>9:30</td><td>NCB-113</td></tr>
+                  <tr><td>ENGLISH 1020</td><td>Tu Th</td><td>11:30</td><td>UC-1225</td></tr>
+                  <tr><td>CHEM 1301</td><td>F</td><td>12:30</td><td>CHB-9</td></tr>
+                  <tr><td>BIOLOGY 1001</td><td>M W</td><td>1:30</td><td>BGS-0153</td></tr>
+                  <tr><td>HISTORY 1401</td><td>Tu Th</td><td>3:30</td><td>SSC-2050</td></tr>
+                </table>
+              </div>
+              <div class="mini-arrow"><span>→</span><small>Slotted</small></div>
+              <div class="mini-panel">
+                <p class="mini-tag">your calendar app</p>
+                <div class="mini-daynames"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span></div>
+                <div class="mini-week"><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:66px;--c:var(--c2);--e:var(--e2)">BIOLOGY</span></div><div class="mini-day"><span style="top:37px;--c:var(--c1);--e:var(--e1)">ENGLISH</span><span style="top:96px;--c:var(--c4);--e:var(--e4)">HISTORY</span></div><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:66px;--c:var(--c2);--e:var(--e2)">BIOLOGY</span></div><div class="mini-day"><span style="top:37px;--c:var(--c1);--e:var(--e1)">ENGLISH</span><span style="top:96px;--c:var(--c4);--e:var(--e4)">HISTORY</span></div><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:52px;--c:var(--c0);--e:var(--e0)">CHEM</span></div></div>
+              </div>
             </div>
-            <div class="mini-arrow"><span>→</span><small>Slotted</small></div>
-            <div class="mini-panel">
-              <p class="mini-tag">your calendar app</p>
-              <div class="mini-daynames"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span></div>
-              <div class="mini-week"><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:66px;--c:var(--c2);--e:var(--e2)">BIOLOGY</span></div><div class="mini-day"><span style="top:37px;--c:var(--c1);--e:var(--e1)">ENGLISH</span><span style="top:96px;--c:var(--c4);--e:var(--e4)">HISTORY</span></div><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:66px;--c:var(--c2);--e:var(--e2)">BIOLOGY</span></div><div class="mini-day"><span style="top:37px;--c:var(--c1);--e:var(--e1)">ENGLISH</span><span style="top:96px;--c:var(--c4);--e:var(--e4)">HISTORY</span></div><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:52px;--c:var(--c0);--e:var(--e0)">CHEM</span></div></div>
-            </div>
+            <p class="intro-why">DraftMySchedule can't send your timetable to a calendar app. <b>Slotted turns it into calendar events for the whole term</b>, so you never have to type a class in by hand.</p>
+            <p class="visually-hidden">Example: a DraftMySchedule class list (Math, English, Chemistry, Biology and History, with days, times and rooms) becomes weekly events in your calendar app.</p>
           </div>
-          <p class="intro-why">DraftMySchedule can't send your timetable to a calendar app. <b>Slotted turns it into calendar events for the whole term</b>, so you never have to type a class in by hand.</p>
-          <p class="visually-hidden">Example: a DraftMySchedule class list (Math, English, Chemistry, Biology and History, with days, times and rooms) becomes weekly events in your calendar app.</p>
 
           <div class="paper-card account-card">
             <span class="tape" aria-hidden="true"></span>
+            <p class="form-status oauth-error" id="oauth-error" role="alert"></p>
 
             <div id="signed-in" hidden>
               <p class="signed-in-text">You're signed in as <b id="signed-in-email"></b>.</p>
@@ -125,40 +130,51 @@
             </div>
 
             <div id="account-forms">
-              <div class="oauth-buttons" id="oauth-buttons" hidden>
-                <a class="button-plain oauth" id="oauth-google" href="#" hidden><span class="oauth-icon" aria-hidden="true">G</span> Continue with Google</a>
-                <div class="or"><span>or use email</span></div>
+              <div class="choices" id="choices">
+                <div class="choice-card">
+                  <span class="explain-icon" aria-hidden="true">↓</span>
+                  <b>Without an account</b>
+                  <span>Nothing is stored. You download your calendar file and that's it.</span>
+                  <button type="button" class="button-choice" id="continue-guest">Continue without an account</button>
+                </div>
+                <div class="choice-card">
+                  <span class="explain-icon" aria-hidden="true">↻</span>
+                  <b>With an account</b>
+                  <span>Your schedule is saved, and you get a link that keeps your calendar up to date.</span>
+                  <button type="button" class="button-choice" id="show-signin" aria-expanded="false" aria-controls="signin-panel">Sign in or create account</button>
+                </div>
               </div>
-              <p class="form-status oauth-error" id="oauth-error" role="alert"></p>
-              <div class="account-tabs" role="tablist" aria-label="Account">
-                <button type="button" role="tab" id="tab-signin" aria-selected="true" aria-controls="form-signin">Sign in</button>
-                <button type="button" role="tab" id="tab-register" aria-selected="false" aria-controls="form-register">Create account</button>
+
+              <div id="signin-panel" hidden>
+                <div class="oauth-buttons" id="oauth-buttons" hidden>
+                  <a class="button-plain oauth" id="oauth-google" href="#" hidden><span class="oauth-icon" aria-hidden="true">G</span> Continue with Google</a>
+                  <div class="or"><span>or use email</span></div>
+                </div>
+                <div class="account-tabs" role="tablist" aria-label="Account">
+                  <button type="button" role="tab" id="tab-signin" aria-selected="true" aria-controls="form-signin">Sign in</button>
+                  <button type="button" role="tab" id="tab-register" aria-selected="false" aria-controls="form-register">Create account</button>
+                </div>
+
+                <form class="account-form" id="form-signin" novalidate>
+                  <label>Email <input type="email" name="email" autocomplete="email" required></label>
+                  <label>Password <input type="password" name="password" autocomplete="current-password" required></label>
+                  <button type="submit" class="button-ink">Sign in</button>
+                  <button type="button" class="link-button forgot-link" id="forgot-open">Forgot your password?</button>
+                  <p class="form-status" role="status" aria-live="polite"></p>
+                </form>
+
+                <form class="account-form" id="form-register" novalidate hidden>
+                  <label>Name <span class="optional">(optional)</span> <input type="text" name="displayName" autocomplete="given-name" maxlength="60"></label>
+                  <label>Email <input type="email" name="email" autocomplete="email" required></label>
+                  <label>Password <span class="optional">(at least 10 characters)</span> <input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
+                  <button type="submit" class="button-ink">Create account</button>
+                  <p class="form-status" role="status" aria-live="polite"></p>
+                </form>
+                <div class="or"><span>or</span></div>
+                <button type="button" class="button-plain" id="continue-guest-2">Continue without an account</button>
               </div>
-
-              <form class="account-form" id="form-signin" novalidate>
-                <label>Email <input type="email" name="email" autocomplete="email" required></label>
-                <label>Password <input type="password" name="password" autocomplete="current-password" required></label>
-                <button type="submit" class="button-ink">Sign in</button>
-                <button type="button" class="link-button forgot-link" id="forgot-open">Forgot your password?</button>
-                <p class="form-status" role="status" aria-live="polite"></p>
-              </form>
-
-              <form class="account-form" id="form-register" novalidate hidden>
-                <label>Name <span class="optional">(optional)</span> <input type="text" name="displayName" autocomplete="given-name" maxlength="60"></label>
-                <label>Email <input type="email" name="email" autocomplete="email" required></label>
-                <label>Password <span class="optional">(at least 10 characters)</span> <input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
-                <button type="submit" class="button-ink">Create account</button>
-                <p class="form-status" role="status" aria-live="polite"></p>
-              </form>
-
-              <div class="or"><span>or</span></div>
-              <button type="button" class="button-plain" id="continue-guest">Continue without an account</button>
             </div>
 
-            <div class="account-explain">
-              <div class="explain-card"><span class="explain-icon" aria-hidden="true">↓</span><b>Without an account</b><span>Nothing is stored. You download your calendar file and that's it.</span></div>
-              <div class="explain-card"><span class="explain-icon" aria-hidden="true">↻</span><b>With an account</b><span>Your schedule is saved, and you get a link that keeps your calendar up to date.</span></div>
-            </div>
             <p class="privacy-link-row"><button type="button" class="link-button" data-open="privacy">What Slotted stores, and how to delete it</button></p>
           </div>
         </section>
@@ -175,7 +191,7 @@
             <label class="app-card">
               <input type="radio" name="app" value="apple">
               <span class="app-name">Apple Calendar</span>
-              <span class="app-detail">The Calendar app on Mac, iPhone and iPad. You can add your classes from any of them.</span>
+              <span class="app-detail">The Calendar app on Mac, iPhone and iPad. You can add your classes from any of them, including straight from an iPhone.</span>
             </label>
             <label class="app-card">
               <input type="radio" name="app" value="google">
@@ -185,7 +201,7 @@
             <label class="app-card">
               <input type="radio" name="app" value="outlook">
               <span class="app-name">Outlook</span>
-              <span class="app-detail">Microsoft's calendar, in Outlook on the web, Windows or Mac, including school and work accounts.</span>
+              <span class="app-detail">Microsoft's calendar, including school and work accounts. You'll add your classes in Outlook on the web, Windows or Mac; the Outlook phone app can't add them, but shows them afterwards.</span>
             </label>
             <label class="app-card">
               <input type="radio" name="app" value="other">
@@ -204,20 +220,24 @@
         <section class="view" id="view-schedule" aria-labelledby="schedule-title" tabindex="-1" hidden>
           <div class="view-intro">
             <h2 id="schedule-title">Save your schedule from DraftMySchedule</h2>
-            <p class="lede">Slotted needs one file: your DraftMySchedule page, saved from your browser. It takes about a minute: four quick steps. Tick each one off as you go.</p>
+            <p class="lede">Slotted needs one file: your DraftMySchedule page, saved from your browser. Four steps, about a minute. Tick each one off as you go.</p>
           </div>
 
+          <p class="guide-done" id="guide-done" hidden>
+            <span class="guide-done-text" id="guide-done-text"></span>
+            <button type="button" class="link-button" id="guide-show">Show the steps again</button>
+          </p>
           <ol class="checklist" id="guide">
             <li class="task">
               <label class="task-head"><input type="checkbox"><span class="check-box" aria-hidden="true"></span>
                 <span class="task-title">Open DraftMySchedule on a computer and sign in</span></label>
-              <div class="task-detail">Sign in with your Western account. Use a laptop or desktop: phones can't easily save a whole web page.</div>
+              <div class="task-detail">Go to <a href="https://draftmyschedule.uwo.ca/" target="_blank" rel="noopener">draftmyschedule.uwo.ca</a> (opens in a new tab) and sign in with your Western account. Use a laptop or desktop: phones can't save a whole web page.</div>
             </li>
             <li class="task">
               <label class="task-head"><input type="checkbox"><span class="check-box" aria-hidden="true"></span>
                 <span class="task-title">Click “My Current Schedule” in the menu at the top</span></label>
               <div class="task-detail">
-                <p>After you sign in, DraftMySchedule opens on <b>Build Future Draft</b>. That page is for planning drafts, not the classes you're registered in, so switch to <b>My Current Schedule</b>.</p>
+                <p>After you sign in, DraftMySchedule opens on <b>Build Draft</b>. That page is for planning drafts, not the classes you're registered in, so switch to <b>My Current Schedule</b>.</p>
                 <div class="menu-sketch" aria-hidden="true">
                   <span>Home</span><span>Course List</span><span>Build Draft</span><span>Access Saved Drafts</span><span>My Shared Drafts</span><span class="menu-pick"><span class="menu-target">My Current Schedule</span><span class="menu-arrow">← click this one</span></span><span>Enrollment Appointment</span>
                 </div>
@@ -271,6 +291,7 @@
               <button type="button" role="tab" class="term-tab" data-term="winter" aria-selected="false">Winter term</button>
             </div>
             <p class="term-range" id="term-range"></p>
+            <p class="days-off" id="days-off"></p>
 
             <div class="week-wrap" aria-hidden="true">
               <div class="week" id="week"></div>
@@ -305,15 +326,20 @@
                   <option value="15">15 minutes before</option>
                   <option value="30">30 minutes before</option>
                 </select>
-                <p class="option-note" id="reminder-note" hidden>Google Calendar doesn't keep reminders from imported files. The last page shows how to turn them on in Google instead.</p>
+                <p class="option-note" id="reminder-note" hidden>Google Calendar ignores reminders in calendar files and links, so you'll set them in Google instead. The last page shows how.</p>
               </fieldset>
             </div>
 
             <div class="download-box">
               <p class="download-detail" id="download-detail"></p>
+              <button type="button" class="button-ink button-big" id="save-link" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+                <span id="save-link-text">Save and get my calendar link</span>
+              </button>
+              <p class="link-explain" id="link-explain" hidden>Add the link to your calendar app once. When your classes change, update them here and your calendar follows by itself.</p>
               <button type="button" class="button-ink button-big" id="download">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>
-                Download calendar file
+                <span id="download-text">Download calendar file</span>
               </button>
             </div>
           </div>
@@ -347,9 +373,9 @@
 
             <div class="paper-card feed-card" id="feed-card">
               <span class="tape" aria-hidden="true"></span>
-              <h3>Keep your calendar up to date automatically</h3>
-              <p class="feed-explain">Instead of importing the file, you can <b>subscribe</b> your calendar app to a private link. Your app then checks the link every few hours, so if you update your schedule here later, your calendar updates by itself.</p>
-              <p class="feed-warning">Use <b>either</b> the file <b>or</b> the link, not both, or every class will show up twice.</p>
+              <h3 id="feed-title">Add your calendar link</h3>
+              <p class="feed-explain">Your calendar app checks this private link every few hours, so when you update your schedule here, your calendar updates by itself.</p>
+              <p class="feed-warning">Use <b>either</b> the link <b>or</b> a downloaded file, not both, or every class will show up twice.</p>
 
               <div id="feed-off">
                 <button type="button" class="button-ink" id="feed-create">Get my calendar link</button>
@@ -370,10 +396,11 @@
                 <ol class="feed-steps" id="feed-steps-google" hidden>
                   <li>On a computer, go to <b>calendar.google.com</b>.</li>
                   <li>Next to <b>Other calendars</b> on the left, click <b>+</b>, then <b>From URL</b>.</li>
-                  <li>Paste the link and click <b>Add calendar</b>. Google can take several hours to show changes you make later.</li>
+                  <li>Paste the link and click <b>Add calendar</b>. Google can take several hours, sometimes up to a day, to show changes you make later.</li>
+                  <li><b>Reminders (optional):</b> open the new calendar's settings in Google and add an <b>Event notification</b>, for example 10 minutes before.</li>
                 </ol>
                 <ol class="feed-steps" id="feed-steps-outlook" hidden>
-                  <li>In <b>Outlook on the web</b>, open Calendar and choose <b>Add calendar</b>.</li>
+                  <li>On a computer, in <b>Outlook on the web</b>, open Calendar and choose <b>Add calendar</b>. (The Outlook phone app can't add links, but shows the calendar afterwards.)</li>
                   <li>Choose <b>Subscribe from web</b>, paste the link, give it a name, and click <b>Import</b>.</li>
                 </ol>
                 <ol class="feed-steps" id="feed-steps-other" hidden>
@@ -391,8 +418,9 @@
               <p class="form-status" id="feed-status" role="status" aria-live="polite"></p>
             </div>
           </div>
-          <p class="guest-note" id="guest-note" hidden>With an account, Slotted saves this schedule and can give you a calendar link that updates by itself when your schedule changes.</p>
 
+          <p class="file-also-link" id="file-also-link" hidden>This schedule also has a calendar link. Use <b>either</b> the link <b>or</b> this file, not both, or every class will show up twice.</p>
+          <div id="howto">
           <h3 class="part-title"><span id="howto-title">Add it to your calendar</span></h3>
           <div class="instructions" id="howto-apple" hidden>
             <ol>
@@ -422,6 +450,8 @@
               <li><b>If it asks where to put the events,</b> choose a new, separate calendar, so your classes can be hidden or removed together later.</li>
               <li>The file uses the standard iCalendar (.ics) format, which almost every calendar app supports.</li>
             </ol>
+          </div>
+
           </div>
 
           <p class="check-note" id="check-note">Something not right? Compare a few classes with DraftMySchedule. If your schedule changes later, come back and make a new file.</p>
@@ -470,21 +500,22 @@
     <h2 id="account-title">Your account</h2>
     <p>Signed in as <b id="account-email"></b>.</p>
     <p><button type="button" class="link-button" data-open="privacy">What Slotted stores about you</button></p>
-    <div class="danger-zone">
-      <h3>Delete my account</h3>
+    <p><button type="button" class="button-plain" id="account-signout">Sign out</button></p>
+    <details class="danger-zone" id="danger-zone">
+      <summary>Delete my account…</summary>
       <p>This permanently deletes your account, your saved schedules and your calendar links. Calendars subscribed to your link will stop updating. This can't be undone.</p>
       <form id="delete-form" class="account-form" novalidate>
         <label id="delete-password-label">Type your password to confirm <input type="password" name="password" autocomplete="current-password"></label>
         <button type="submit" class="button-danger">Delete my account</button>
         <p class="form-status" role="status" aria-live="polite"></p>
       </form>
-    </div>
+    </details>
   </dialog>
 
   <dialog class="paper-dialog" id="dialog-forgot" aria-labelledby="forgot-title">
     <form method="dialog" class="dialog-close-form"><button class="dialog-close" aria-label="Close">×</button></form>
     <h2 id="forgot-title">Reset your password</h2>
-    <p>Enter the email you signed up with. If it has a Slotted account, we'll email you a link to choose a new password. The link works for one hour.</p>
+    <p>Enter the email you signed up with. If it has a Slotted account, Slotted will email you a link to choose a new password. The link works for one hour.</p>
     <form id="forgot-form" class="account-form" novalidate>
       <label>Email <input type="email" name="email" autocomplete="email" required></label>
       <button type="submit" class="button-ink">Send reset link</button>

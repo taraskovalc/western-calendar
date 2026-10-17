@@ -77,6 +77,7 @@ function toSchedule(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.course_count !== undefined && { courseCount: row.course_count }),
+    ...(row.has_feed !== undefined && { hasFeed: row.has_feed }),
     ...(row.courses !== undefined && { courses: row.courses }),
   };
 }
@@ -101,11 +102,16 @@ const notFound = res => res.status(404).json({ error: 'Schedule not found' });
 // GET /schedules  ->  my schedules, newest first (without the classes, to keep it small)
 schedulesRouter.get('/', async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT id, name, academic_year, include_terms, alarm_minutes, calendar_app,
-            created_at, updated_at, jsonb_array_length(courses) AS course_count
-       FROM schedules
-      WHERE user_id = $1
-      ORDER BY updated_at DESC`,
+    // course_count: different courses (a course's lecture and lab count once).
+    // has_feed: whether this schedule has a calendar link turned on.
+    `SELECT s.id, s.name, s.academic_year, s.include_terms, s.alarm_minutes, s.calendar_app,
+            s.created_at, s.updated_at,
+            (SELECT count(DISTINCT (c->>'subject') || ' ' || (c->>'number'))
+               FROM jsonb_array_elements(s.courses) AS c)::int AS course_count,
+            EXISTS (SELECT 1 FROM calendar_feeds f WHERE f.schedule_id = s.id) AS has_feed
+       FROM schedules s
+      WHERE s.user_id = $1
+      ORDER BY s.updated_at DESC`,
     [req.userId],
   );
   res.json({ schedules: rows.map(toSchedule) });

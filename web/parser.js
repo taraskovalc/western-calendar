@@ -105,7 +105,9 @@ export function readSchedule(html) {
 
     const status = text(row, 'Status');
     if (status && status.toUpperCase() !== 'ENROLLED') {
-      notes.push(`${subject} ${number} ${text(row, 'Component')} is marked "${clip(status, 20)}", not enrolled. It's still included.`);
+      notes.push(/WAIT/i.test(status)
+        ? `${subject} ${number} ${text(row, 'Component')} is waitlisted, not enrolled. It's included for now; make a new file if you don't get in.`
+        : `${subject} ${number} ${text(row, 'Component')} is marked "${clip(status, 20)}", not enrolled. It's still included.`);
     }
 
     courses.push({

@@ -21,7 +21,7 @@ export const TERM_DATES = {
     {
       season: 'winter', starts_on: '2027-01-04', ends_on: '2027-04-09',
       no_class_dates: [...range('2027-02-15', 5), '2027-03-26'],
-      labels: { '2027-02-15': 'Winter reading week', '2027-03-26': 'Good Friday' },
+      labels: { '2027-02-15': 'Winter reading week, including Family Day', '2027-03-26': 'Good Friday' },
       // 6-week quarter courses (S = first half of winter, T = second half)
       quarters: { S: ['2027-01-04', '2027-02-12'], T: ['2027-02-22', '2027-04-09'] },
     },

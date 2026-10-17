@@ -23,11 +23,12 @@ const state = {
   terms: [],
   tab: 'fall',
   colourOf: new Map(),
-  lastDownload: null,
+  lastDownload: null,  // what the last "finish" was: { mode: 'file' | 'link', include, alarmMinutes, ... }
   scheduleId: null,    // the saved schedule being worked on (signed-in users)
   scheduleName: null,
   saveResult: null,    // { ok, message } after saving to the account
   feed: null,          // { url, webcalUrl } once a calendar link exists
+  myNames: [],         // names of the saved schedules, so a new one gets its own name
 };
 
 /* ================= helpers ================= */
@@ -87,6 +88,20 @@ function show(view, { push = true } = {}) {
 window.addEventListener('popstate', () => show(location.hash.slice(1), { push: false }));
 document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => show(button.dataset.go)));
 
+/* ================= phones ================= */
+// Step 3 needs a computer, and Google Calendar and Outlook can only add a
+// calendar file or link from a computer. Tell phone visitors right away.
+const isPhone = /iPhone|iPod|Android.+Mobile|Windows Phone/i.test(navigator.userAgent)
+  || matchMedia('(max-width: 600px) and (pointer: coarse)').matches;
+if (isPhone) {
+  document.querySelectorAll('[data-phone-note]').forEach(note => {
+    note.hidden = false;
+    note.textContent = "On a phone? You can start here, but saving your DraftMySchedule page (step 3) needs a computer. "
+      + 'Google Calendar and Outlook also only let you add your classes from a computer (they then show up on your phone). '
+      + 'Apple Calendar can add them right on an iPhone.';
+  });
+}
+
 /* ================= cover ================= */
 
 $('#cover-term').textContent = `Fall/Winter ${LATEST_YEAR.replace('-', '–')}`;
@@ -128,20 +143,36 @@ applyTheme(currentTheme());
 /* ================= 1. welcome & accounts ================= */
 
 function renderWelcome() {
-  $('#signed-in').hidden = !state.user;
-  $('#account-forms').hidden = Boolean(state.user);
-  if (state.user) {
+  const signedIn = Boolean(state.user);
+  $('#signed-in').hidden = !signedIn;
+  $('#account-forms').hidden = signedIn;
+  $('#welcome-intro').hidden = signedIn;   // returning users don't need the explanation again
+  $('#welcome-title').textContent = signedIn ? 'Welcome back' : 'Sign in, or jump straight in';
+  $('#welcome-lede').textContent = signedIn
+    ? 'Open a saved schedule to update it, or start a new one.'
+    : 'An account is optional. You can make your calendar file either way.';
+  if (signedIn) {
     $('#signed-in-email').textContent = state.user.email;
     loadMySchedules();
   }
 }
 
+// "Sign in or create account" opens the sign-in forms in place of the two choices.
+function showSignInForms(open) {
+  $('#choices').hidden = open;
+  $('#signin-panel').hidden = !open;
+  $('#show-signin').setAttribute('aria-expanded', String(open));
+  if (open) $('#form-signin').hidden ? $('#form-register [name=email]').focus() : $('#form-signin [name=email]').focus();
+}
+$('#show-signin').addEventListener('click', () => showSignInForms(true));
+
 // Clears everything about the current user (after signing out or deleting the account).
 function signedOut() {
-  Object.assign(state, { user: null, scheduleId: null, scheduleName: null, saveResult: null, feed: null });
+  Object.assign(state, { user: null, scheduleId: null, scheduleName: null, saveResult: null, feed: null, myNames: [] });
   resetSchedulePage();  // the next person on this computer starts with an empty schedule
   cacheTheme(null);
   renderAccountChip();
+  updateFinishButtons();
   $('#tab-signin')?.click(); // next visit to the welcome page starts on "Sign in"
 }
 
@@ -155,13 +186,17 @@ function renderAccountChip() {
   if (!state.user) return;
   const account = el('button', { className: 'chip-link', text: 'Account', attrs: { type: 'button' } });
   account.addEventListener('click', openAccountDialog);
-  const signOut = el('button', { className: 'chip-link', text: 'Sign out', attrs: { type: 'button' } });
-  signOut.addEventListener('click', async () => {
-    try { await api('/auth/logout', { method: 'POST' }); } catch { /* signed out locally anyway */ }
-    signedOut();
-    show('welcome');
-  });
-  chip.replaceChildren(el('span', { text: `Signed in as ${state.user.displayName || state.user.email}` }), account, signOut);
+  const signOutButton = el('button', { className: 'chip-link', text: 'Sign out', attrs: { type: 'button' } });
+  signOutButton.addEventListener('click', signOut);
+  chip.replaceChildren(el('span', { text: `Signed in as ${state.user.displayName || state.user.email}` }), account, signOutButton);
+}
+
+async function signOut() {
+  try { await api('/auth/logout', { method: 'POST' }); } catch { /* signed out locally anyway */ }
+  document.querySelectorAll('dialog[open]').forEach(d => d.close());
+  signedOut();
+  showSignInForms(false);
+  show('welcome');
 }
 
 // Sign in / Create account tabs
@@ -210,9 +245,10 @@ function signedIn(user) {
   cacheTheme(user.theme ?? 'light');
   welcomeMessage('');
   renderAccountChip();
+  updateFinishButtons();
 }
 
-$('#continue-guest').addEventListener('click', () => { state.started = true; show('app'); });
+for (const id of ['#continue-guest', '#continue-guest-2']) $(id).addEventListener('click', () => { state.started = true; show('app'); });
 $('#continue-user').addEventListener('click', () => {
   state.started = true;
   resetSchedulePage();
@@ -234,8 +270,9 @@ if (chosen('app')) {
 }
 
 function updateReminderOption() {
+  // Google ignores reminders in files and links, so don't offer a choice that does nothing.
   $('#reminder-note').hidden = state.app !== 'google';
-  $('#alarm').disabled = state.app === 'google';
+  $('#alarm').hidden = state.app === 'google';
 }
 
 /* ================= 3. schedule ================= */
@@ -265,8 +302,22 @@ function resetSchedulePage() {
   $('.drop-detail').textContent = 'The University of Western Ontario.html';
   document.querySelectorAll('#guide input').forEach(box => { box.checked = false; });
   $('#file-input').value = '';
+  showGuide();
   setStatus('', '');
 }
+
+// Once a file is in, the four steps fold into one line (they can be opened again).
+function collapseGuide(text) {
+  document.querySelectorAll('#guide input').forEach(box => { box.checked = true; });
+  $('#guide').hidden = true;
+  $('#guide-done').hidden = false;
+  $('#guide-done-text').textContent = `✓ ${text}`;
+}
+function showGuide() {
+  $('#guide').hidden = false;
+  $('#guide-done').hidden = true;
+}
+$('#guide-show').addEventListener('click', showGuide);
 
 function setStatus(message, kind) {
   const status = $('#read-status');
@@ -292,7 +343,7 @@ async function handleFile(file) {
     if (!(err instanceof ScheduleReadError)) console.error(err);
     const reason = err instanceof ScheduleReadError ? err.message : 'The file could not be read.';
     // Some messages already say exactly what to do; the rest get the usual tip.
-    setStatus(err.complete ? reason : `${reason} Make sure you saved the My Current Schedule page (step 2 above), not Build Future Draft, then try again.`, 'error');
+    setStatus(err.complete ? reason : `${reason} Make sure you saved the My Current Schedule page (step 2 above), not Build Draft, then try again.`, 'error');
     return;
   }
 
@@ -304,14 +355,15 @@ async function handleFile(file) {
   Object.assign(state, { courses: result.courses, academicYear: year, terms: TERM_DATES[year], lastDownload: null, saveResult: null });
   const notes = [...result.notes];
 
-  // Tick off the guide: they clearly found and saved the file.
-  document.querySelectorAll('#guide input').forEach(box => { box.checked = true; });
+  // They clearly found and saved the file: fold the four steps away.
+  collapseGuide(`Schedule loaded: ${file.name}`);
   $('#dropzone').classList.add('loaded');
   $('.drop-title').textContent = `Loaded: ${file.name}`;
   $('.drop-detail').textContent = 'Drop a different file here to replace it.';
+  const found = `${plural(courseCount(), 'course')} (${plural(timedCount(), 'lecture, lab or tutorial', 'lectures, labs and tutorials')} with set times)`;
   setStatus(state.scheduleId
-    ? `Got it. Found ${plural(state.courses.length, 'class entry', 'class entries')}. These will replace the classes in “${state.scheduleName}” when you download.`
-    : `Got it. Found ${plural(state.courses.length, 'class entry', 'class entries')} for ${year}. Check them below.`, 'ok');
+    ? `Got it. Found ${found}. These will replace the classes in “${state.scheduleName}” when you save.`
+    : `Got it. Found ${found} for ${year}. Check them below.`, 'ok');
 
   renderCheck(notes);
   $('#check-part').hidden = false;
@@ -343,13 +395,15 @@ function meetingsFor(season) {
   return out;
 }
 
+const hasTime = c => c.meetings.some(m => m.start && m.days.length);
+const courseCount = () => new Set(state.courses.map(courseKey)).size;
+const timedCount = () => state.courses.filter(hasTime).length;
+
 function renderCheck(notes) {
-  const hasTime = c => c.meetings.some(m => m.start && m.days.length);
   const timed = state.courses.filter(hasTime);
   const untimed = state.courses.filter(c => !hasTime(c));
   const unplaced = timed.filter(c => whyNotPlaced(c.number));
-  $('#found-summary').textContent =
-    `${plural(new Set(state.courses.map(courseKey)).size, 'course')} and ${plural(timed.length, 'lecture, lab or tutorial', 'lectures, labs and tutorials')} with set times. Compare this week with DraftMySchedule before you download.`;
+  $('#found-summary').textContent = 'Compare this week with DraftMySchedule before you continue.';
   // Open the term that's next: winter once fall classes are over.
   const fallOver = localDate(new Date()) > (state.terms.find(t => t.season === 'fall')?.ends_on ?? '');
   state.tab = (fallOver && meetingsFor('winter').length) || !meetingsFor('fall').length ? 'winter' : 'fall';
@@ -357,7 +411,7 @@ function renderCheck(notes) {
 
   $('#not-added').replaceChildren(
     ...untimed.map(c =>
-      el('li', { text: `${courseKey(c)} ${c.component}${c.title ? ` (${c.title})` : ''}: ${c.delivery || 'no set day or time'}, so there's no time to place it at.` })),
+      el('li', { text: `${courseKey(c)} ${c.component}${c.title ? ` (${c.title})` : ''} has no set day or time${c.delivery ? ` (${c.delivery})` : ''}, so it isn't in the calendar.` })),
     ...unplaced.map(c =>
       el('li', { text: `${courseKey(c)} ${c.component}${c.title ? ` (${c.title})` : ''} ${whyNotPlaced(c.number)}. Add it to your calendar yourself.` })));
   $('#extra-notes').hidden = untimed.length + unplaced.length === 0;
@@ -386,6 +440,10 @@ function renderWeek() {
   const items = meetingsFor(state.tab);
   const week = $('#week');
   $('#term-range').textContent = term ? `${longDate(term.starts_on)} → ${longDate(term.ends_on)}` : '';
+  const off = term ? daysOff(term) : [];
+  $('#days-off').replaceChildren(...(off.length
+    ? ['No classes on ', ...off.flatMap((part, i) => [...(i ? [' · '] : []), el('span', { text: part })])]
+    : []));
 
   if (!items.length) {
     const empty = `No classes with set times in the ${state.tab} term.`;
@@ -405,10 +463,11 @@ function renderWeek() {
 
   const byDay = day => items.filter(i => i.day === day).sort((a, b) => minutes(a.meeting.start) - minutes(b.meeting.start));
   const header = [el('div', { className: 'week-corner' }), ...days.map(d => el('div', { className: 'week-day', text: DAY_NAMES[d] }))];
-  const times = el('div', { className: 'week-times' }, Array.from({ length: endHour - startHour - 1 }, (_, i) => {
-    const hour = startHour + i + 1;
-    const label = el('span', { className: 'week-time', text: `${hour % 12 || 12} ${hour < 12 ? 'AM' : 'PM'}` });
-    label.style.top = `${((i + 1) * 60 / span) * 100}%`;
+  // An hour label on every line, including the first (so 8:30 doesn't look like 9:00).
+  const times = el('div', { className: 'week-times' }, Array.from({ length: endHour - startHour }, (_, i) => {
+    const hour = startHour + i;
+    const label = el('span', { className: `week-time${i === 0 ? ' first' : ''}`, text: `${hour % 12 || 12} ${hour < 12 ? 'AM' : 'PM'}` });
+    label.style.top = `${(i * 60 / span) * 100}%`;
     return label;
   }));
 
@@ -444,8 +503,11 @@ function renderWeek() {
   const columns = days.map(day => el('div', { className: 'week-col' }, lanesFor(byDay(day)).map(({ course, meeting, lane, lanes }) => {
     const weeks = weeksOf(course);
     const block = colour(el('div', { className: 'block', attrs: { title: `${courseKey(course)} ${course.component} · ${clock(meeting.start)}–${clock(meeting.end)} · ${meeting.room}${weeks ? ` · ${weeks} only` : ''}` } }, [
-      el('span', { className: 'block-code', text: `${courseKey(course)} ${course.component}` }),
-      el('span', { className: 'block-meta', text: weeks ? `${weeks} · ${meeting.room || 'No room'}` : `${clock(meeting.start)} · ${meeting.room || 'No room'}` }),
+      // Line 1: the course. Line 2: lecture/lab/tutorial and room (the time is
+      // where the block sits). Six-week courses add which weeks.
+      el('span', { className: 'block-code', text: courseKey(course) }),
+      el('span', { className: 'block-meta', text: `${course.component} · ${meeting.room || 'No room'}` }),
+      ...(weeks ? [el('span', { className: 'block-meta', text: `${weeks} only` })] : []),
     ]), course);
     block.style.top = `${((minutes(meeting.start) - startHour * 60) / span) * 100}%`;
     block.style.height = `calc(${((minutes(meeting.end) - minutes(meeting.start)) / span) * 100}% - 4px)`;
@@ -472,6 +534,25 @@ function renderWeek() {
   ])));
 }
 document.querySelectorAll('.term-tab').forEach(tab => tab.addEventListener('click', () => { state.tab = tab.dataset.term; renderWeek(); }));
+
+// ["Wed, Sep 30 (National Day for Truth and Reconciliation)", "Oct 12–16 (Fall reading week)"]
+function daysOff(term) {
+  const days = [...(term.no_class_dates ?? [])].sort();
+  if (!days.length) return [];
+  const nextDay = iso => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
+  const groups = [];
+  for (const day of days) {
+    const last = groups.at(-1);
+    if (last && nextDay(last.end) === day) last.end = day; else groups.push({ start: day, end: day });
+  }
+  const parts = groups.map(({ start, end }) => {
+    const when = start === end ? longDate(start)
+      : start.slice(0, 7) === end.slice(0, 7) ? `${shortDate(start)}–${Number(end.slice(8))}` : `${shortDate(start)}–${shortDate(end)}`;
+    const why = term.labels?.[start];
+    return why ? `${when} (${why})` : when;
+  });
+  return parts;
+}
 
 // Counts every individual class, the days off skipped, and the next class from today.
 function summarize(include) {
@@ -501,9 +582,11 @@ function summarize(include) {
 
 function updateDownloadDetail() {
   const total = summarize(chosen('include')).total;
+  updateFinishButtons();
   // Nothing to add (for example every course is online): say so instead of
   // offering an empty calendar file.
   $('#download').disabled = total === 0;
+  $('#save-link').disabled = total === 0;
   $('#download-detail').textContent = total
     ? `${plural(total, 'class', 'classes')} will go into your calendar`
     : chosen('include') === 'both'
@@ -511,6 +594,21 @@ function updateDownloadDetail() {
       : 'No classes with set times in this term. Try "Both" or the other term.';
 }
 document.querySelectorAll('input[name="include"]').forEach(r => r.addEventListener('change', updateDownloadDetail));
+
+// Signed in: the main choice is a calendar link (saved, no file); a file is the
+// second option. Guests just get the file.
+function updateFinishButtons() {
+  const signedIn = Boolean(state.user);
+  const updating = signedIn && state.scheduleId && state.feed;
+  $('#save-link').hidden = !signedIn;
+  $('#link-explain').hidden = !signedIn;
+  $('#save-link-text').textContent = updating ? 'Update my schedule' : 'Save and get my calendar link';
+  $('#link-explain').textContent = updating
+    ? 'Your calendar link stays the same, so your calendar picks up the changes by itself.'
+    : 'Add the link to your calendar app once. When your classes change, update them here and your calendar follows by itself.';
+  $('#download').className = `${signedIn ? 'button-plain' : 'button-ink button-big'}`;
+  $('#download-text').textContent = signedIn ? 'Download a calendar file instead' : 'Download calendar file';
+}
 
 function downloadCalendar() {
   const include = chosen('include');
@@ -523,12 +621,21 @@ function downloadCalendar() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  state.lastDownload = { include, alarmMinutes, filename };
+  state.lastDownload = { mode: 'file', include, alarmMinutes, filename };
 }
 $('#download').addEventListener('click', () => {
   downloadCalendar();
   show('done');
   if (state.user) saveToAccount();
+});
+$('#save-link').addEventListener('click', () => {
+  if (!state.user) return;
+  const include = chosen('include');
+  const alarmMinutes = state.app === 'google' ? 0 : Number($('#alarm').value);
+  state.lastDownload = { mode: 'link', include, alarmMinutes, hadFeed: Boolean(state.scheduleId && state.feed) };
+  state.saveResult = null;
+  show('done');
+  saveToAccount();
 });
 $('#download-again').addEventListener('click', downloadCalendar);
 
@@ -537,9 +644,18 @@ $('#download-again').addEventListener('click', downloadCalendar);
 const APP_NAMES = { apple: 'Apple Calendar', google: 'Google Calendar', outlook: 'Outlook', other: 'your calendar app' };
 
 function renderDone() {
-  const { include, alarmMinutes, filename } = state.lastDownload;
+  const { mode, include, alarmMinutes, filename, hadFeed } = state.lastDownload;
+  const linkMode = mode === 'link';
   const { total, skipped, next } = summarize(include);
-  $('#done-file').textContent = `“${filename}” is in your Downloads folder. Here's what's inside, and how to add it to ${APP_NAMES[state.app]}.`;
+  $('#done-title').textContent = !linkMode ? 'Your calendar file is ready'
+    : hadFeed ? 'Your schedule is updated' : 'Your calendar link is ready';
+  $('#done-file').textContent = !linkMode
+    ? `“${filename}” is in your downloads. Here's what's inside, and how to add it to ${APP_NAMES[state.app]}.`
+    : hadFeed
+      ? 'Your calendar picks up the changes by itself within a few hours (Google can take up to a day). There\'s nothing else to do.'
+      : `Add the link below to ${APP_NAMES[state.app]} once. After that, your calendar keeps itself up to date.`;
+  $('#howto').hidden = linkMode;
+  $('#download-again').hidden = linkMode;
 
   // The results, as sticky notes.
   const termText = { both: 'fall + winter', fall: 'fall term', winter: 'winter term' }[include];
@@ -547,7 +663,7 @@ function renderDone() {
     [total.toLocaleString(), `classes added (${termText})`],
     [String(skipped), 'skipped for reading weeks & holidays'],
     state.app === 'google'
-      ? ['Later', 'reminders: turn them on in Google (step 4 below)']
+      ? ['Off', 'add reminders in Google (step 4 below)']
       : [alarmMinutes ? `${alarmMinutes} min` : 'None', alarmMinutes ? 'reminder before each class' : 'no reminders in the file'],
   ];
   $('#stickies').replaceChildren(...notes.map(([number, label], i) => {
@@ -566,11 +682,13 @@ function renderDone() {
   $('#next-class').hidden = !next;
   if (next) {
     $('#next-when').textContent = `${longDate(next.iso)} · ${clock(next.meeting.start)}`;
-    $('#next-what').textContent = `${courseKey(next.course)} ${next.course.component}${next.course.title ? `, ${next.course.title}` : ''}${next.meeting.room ? ` · ${next.meeting.room}` : ''}`;
+    $('#next-what').replaceChildren(
+      `${courseKey(next.course)} ${next.course.component}${next.course.title ? `, ${next.course.title}` : ''}`,
+      ...(next.meeting.room ? [' · ', el('span', { className: 'nowrap', text: next.meeting.room })] : []));
   }
 
   renderAccountDone();
-  $('#howto-title').textContent = state.user ? `Or add the file to ${APP_NAMES[state.app]}` : `Add it to ${APP_NAMES[state.app]}`;
+  $('#howto-title').textContent = `Add it to ${APP_NAMES[state.app]}`;
   for (const name of ['apple', 'google', 'outlook', 'other']) $(`#howto-${name}`).hidden = name !== state.app;
   throwConfetti();
 }
@@ -606,9 +724,13 @@ async function loadMySchedules() {
     $('#my-schedules').hidden = true;
     return;
   }
+  state.myNames = schedules.map(s => s.name);
   $('#my-schedules').hidden = schedules.length === 0;
+  $('#welcome-lede').textContent = schedules.length
+    ? 'Open a saved schedule to update it, or start a new one.'
+    : 'Start a new schedule. It will be saved here so you can update it later.';
   $('#my-list').replaceChildren(...schedules.map(schedule => {
-    const open = el('button', { className: 'button-ink', text: 'Open', attrs: { type: 'button' } });
+    const open = el('button', { className: 'button-plain my-open', text: 'Open', attrs: { type: 'button' } });
     open.addEventListener('click', () => openSavedSchedule(schedule.id));
     const remove = el('button', { className: 'link-button my-delete', text: 'Delete', attrs: { type: 'button' } });
     remove.addEventListener('click', () => confirmThen(remove, 'Click again to delete', async () => {
@@ -620,12 +742,53 @@ async function loadMySchedules() {
         status.textContent = err.message;
       }
     }));
+    const rename = el('button', { className: 'link-button my-delete', text: 'Rename', attrs: { type: 'button' } });
+    const name = el('span', { className: 'my-name', text: schedule.name });
+    rename.addEventListener('click', () => startRename(name, schedule));
+    const meta = [plural(schedule.courseCount, 'course'), ...(schedule.hasFeed ? ['calendar link on'] : []), `updated ${fmtDate(schedule.updatedAt)}`];
     return el('li', { className: 'my-item' }, [
-      el('span', { className: 'my-name', text: schedule.name }),
-      el('span', { className: 'my-meta', text: `${plural(schedule.courseCount, 'class entry', 'class entries')} · updated ${fmtDate(schedule.updatedAt)}` }),
-      el('span', { className: 'my-actions' }, [open, remove]),
+      name,
+      el('span', { className: 'my-meta', text: meta.join(' · ') }),
+      el('span', { className: 'my-actions' }, [open, rename, remove]),
     ]);
   }));
+}
+
+// Renaming happens right in the list: the name turns into a text box.
+function startRename(nameNode, schedule) {
+  const input = el('input', { attrs: { type: 'text', maxlength: '60', 'aria-label': 'New name' } });
+  input.value = schedule.name;
+  const save = el('button', { className: 'link-button', text: 'Save', attrs: { type: 'button' } });
+  const cancel = el('button', { className: 'link-button my-delete', text: 'Cancel', attrs: { type: 'button' } });
+  const form = el('span', { className: 'my-rename' }, [input, save, cancel]);
+  nameNode.replaceWith(form);
+  input.focus();
+  input.select();
+  const finish = async keep => {
+    const newName = input.value.trim();
+    if (!keep || !newName || newName === schedule.name) return loadMySchedules();
+    try {
+      await api(`/schedules/${schedule.id}`, { method: 'PATCH', body: { name: newName } });
+      if (state.scheduleId === schedule.id) state.scheduleName = newName;
+    } catch (err) {
+      $('#my-status').textContent = err.message;
+    }
+    loadMySchedules();
+  };
+  save.addEventListener('click', () => finish(true));
+  cancel.addEventListener('click', () => finish(false));
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') finish(true);
+    if (event.key === 'Escape') finish(false);
+  });
+}
+
+// A new schedule gets a name that isn't taken yet: "Fall/Winter 2026-27 (2)".
+function newScheduleName() {
+  const base = `Fall/Winter ${state.academicYear}`;
+  let name = base;
+  for (let n = 2; state.myNames.includes(name); n++) name = `${base} (${n})`;
+  return name;
 }
 
 // A button that needs a second click to confirm (no pop-up windows).
@@ -660,6 +823,8 @@ async function openSavedSchedule(id) {
     status.textContent = err.message;
     return;
   }
+  let feed = null;
+  try { ({ feed } = await api(`/schedules/${id}/feed`)); } catch { /* shown as "no link" */ }
   status.textContent = '';
   const year = TERM_DATES[schedule.academicYear] ? schedule.academicYear : LATEST_YEAR;
   Object.assign(state, {
@@ -671,7 +836,7 @@ async function openSavedSchedule(id) {
     scheduleName: schedule.name,
     lastDownload: null,
     saveResult: null,
-    feed: null,
+    feed,
   });
   // Bring back the settings saved with it.
   const include = document.querySelector(`input[name="include"][value="${schedule.includeTerms}"]`);
@@ -684,11 +849,13 @@ async function openSavedSchedule(id) {
     updateReminderOption();
   }
 
-  document.querySelectorAll('#guide input').forEach(box => { box.checked = true; });
+  collapseGuide(`Opened “${schedule.name}” from your account`);
   $('#dropzone').classList.remove('loaded');
-  $('.drop-title').replaceChildren('To replace these classes, drag in a new file or ', el('u', { text: 'choose it' }));
+  $('.drop-title').replaceChildren('To update these classes, drag in your new DraftMySchedule file or ', el('u', { text: 'choose it' }));
   $('.drop-detail').textContent = 'The University of Western Ontario.html';
-  setStatus(`Opened “${schedule.name}” from your account. Check the classes below, then download to update your calendar.`, 'ok');
+  setStatus(feed
+    ? `Opened “${schedule.name}”. Add your new file above if your classes changed, then click Update my schedule.`
+    : `Opened “${schedule.name}”. Add your new file above if your classes changed, then save it below.`, 'ok');
   renderCheck([]);
   $('#check-part').hidden = false;
   updateDownloadDetail();
@@ -708,7 +875,7 @@ function saveToAccount() {
 async function saveNow() {
   if (!state.user || !state.lastDownload) return;
   const body = {
-    name: state.scheduleName ?? `Fall/Winter ${state.academicYear}`,
+    name: state.scheduleName ?? newScheduleName(),
     academicYear: state.academicYear,
     courses: state.courses,
     includeTerms: state.lastDownload.include,
@@ -728,7 +895,11 @@ async function saveNow() {
   }
   if (state.saveResult.ok) {
     try {
-      ({ feed: state.feed } = await api(`/schedules/${state.scheduleId}/feed`));
+      // "Save and get my calendar link" makes the link if there isn't one yet
+      // (asking again just returns the existing link).
+      ({ feed: state.feed } = state.lastDownload.mode === 'link'
+        ? await api(`/schedules/${state.scheduleId}/feed`, { method: 'POST' })
+        : await api(`/schedules/${state.scheduleId}/feed`));
     } catch {
       state.feed = null;  // the schedule is saved; the link part just couldn't load
     }
@@ -738,20 +909,26 @@ async function saveNow() {
 
 function renderAccountDone() {
   const signedIn = Boolean(state.user);
+  const linkMode = state.lastDownload?.mode === 'link';
+  const hadFeed = Boolean(state.lastDownload?.hadFeed);
   $('#account-done').hidden = !signedIn;
-  $('#guest-note').hidden = signedIn;
-  $('#check-note').textContent = signedIn
-    ? 'Something not right? Compare a few classes with DraftMySchedule. If your schedule changes, open it from page 1 and add the new file: a subscribed calendar updates by itself.'
+  $('#check-note').textContent = signedIn && linkMode
+    ? 'Something not right? Compare a few classes with DraftMySchedule. When your classes change, open this schedule from page 1, add the new file and click Update my schedule.'
     : 'Something not right? Compare a few classes with DraftMySchedule. If your schedule changes later, come back and make a new file.';
+  $('#file-also-link').hidden = true;
   if (!signedIn) return;
 
   const note = $('#saved-note');
   const result = state.saveResult;
   note.classList.toggle('warn', Boolean(result && result.ok === false));
   note.textContent = !result || result.pending ? 'Saving to your account…'
-    : result.ok ? `✓ Saved to your account as “${state.scheduleName}”`
+    : result.ok ? (hadFeed ? `✓ Updated “${state.scheduleName}”` : `✓ Saved to your account as “${state.scheduleName}”`)
     : result.message;
-  $('#feed-card').hidden = !result?.ok;
+  // The link card belongs to "Save and get my calendar link". After a file
+  // download, only warn if this schedule also has a link (or classes show twice).
+  $('#feed-card').hidden = !(result?.ok && linkMode);
+  $('#file-also-link').hidden = !(result?.ok && !linkMode && state.feed);
+  $('#feed-title').textContent = hadFeed ? 'Your calendar link' : `Add your calendar link to ${APP_NAMES[state.app]}`;
 
   $('#feed-off').hidden = Boolean(state.feed);
   $('#feed-on').hidden = !state.feed;
@@ -814,8 +991,10 @@ function openAccountDialog() {
   formStatus(form, '');
   // Accounts made with Google have no password to type.
   $('#delete-password-label').hidden = state.user.hasPassword === false;
+  $('#danger-zone').open = false;
   $('#dialog-account').showModal();
 }
+$('#account-signout').addEventListener('click', signOut);
 
 $('#delete-form').addEventListener('submit', async event => {
   event.preventDefault();
@@ -903,10 +1082,12 @@ window.addEventListener('slotted:signed-out', () => {
   if (!state.user) return;
   signedOut();
   show('welcome');
+  showSignInForms(true);
   welcomeMessage('Your sign-in has ended. Please sign in again.');
 });
 
 if (signInError) {
+  showSignInForms(true);
   welcomeMessage(SIGN_IN_ERRORS[signInError] ?? SIGN_IN_ERRORS.failed);
   state.started = false;
 }
