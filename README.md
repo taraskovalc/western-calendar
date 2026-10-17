@@ -87,10 +87,19 @@ Keep the old year in both places until that school year is over.
 
 ## Optional: password reset emails (Resend)
 
-1. Make a free account at resend.com and add the domain `taraskoval.ca`.
-2. Add the DNS records Resend shows in Cloudflare (DNS → Records). Wait for Resend to say "Verified".
-3. Create an API key with "Sending access" only.
-4. In `.env`: `RESEND_API_KEY=re_...` and `MAIL_FROM=Slotted <noreply@taraskoval.ca>`, then `docker compose up -d`.
+1. Sign up at resend.com. **Domains → Add domain** → `taraskoval.ca`, region North Virginia (`us-east-1`).
+2. **Auto configure** connects to Cloudflare and adds the records itself: CNAMEs `send` and `rsend` (pointing to `*.forge.rmta.net`) and a TXT `resend._domainkey`. No MX record on `taraskoval.ca` itself is needed, since Slotted only sends email. Wait for the domain to say **Verified**.
+3. **API Keys → Create API key**: name `Slotted server`, permission **Sending access**, domain `taraskoval.ca`. The key is only shown once.
+4. In `.env`, then `docker compose up -d`:
+   ```
+   RESEND_API_KEY=re_...
+   MAIL_FROM="Slotted <noreply@taraskoval.ca>"
+   ```
+   `MAIL_FROM` needs the quotes because of the space.
+
+If a reset email doesn't arrive, `docker compose logs --tail=20 api` shows the reason ("Reset email failed: ..."). The Resend dashboard also lists every email sent.
+
+**Never screenshot or share `.env`.** If a key is ever exposed, make a new one (Resend: delete the key and create another; Google: *Clients → Slotted website → Add secret*, then delete the old one; `SESSION_SECRET`: `openssl rand -hex 32`) and run `docker compose up -d`. To check which settings exist without showing values: `cut -d= -f1 .env`.
 
 ## Optional: Google sign-in
 
