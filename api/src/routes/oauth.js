@@ -1,4 +1,4 @@
-// "Continue with Google" and "Continue with Microsoft".
+// "Continue with Google".
 //
 // How it works (the OAuth 2.0 "authorization code" flow, with PKCE):
 //  1. /auth/google/start sends the browser to Google's sign-in page, with a
@@ -10,7 +10,7 @@
 //  4. We ask Google who the person is (their ID and email), find or create the
 //     matching Slotted account, and sign them in.
 //
-// A provider only switches on once its client ID and secret are in .env.
+// Only switches on once GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are in .env.
 import crypto from 'node:crypto';
 import express from 'express';
 import { pool } from '../db.js';
@@ -31,32 +31,21 @@ const PROVIDERS = {
     // Google tells us whether it has verified the email address.
     trustEmail: info => info.email_verified === true || info.email_verified === 'true',
   },
-  microsoft: {
-    clientId: process.env.MICROSOFT_CLIENT_ID,
-    clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-    // "common" = both personal Microsoft accounts and work/school accounts.
-    authorizeUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-    tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-    userinfoUrl: 'https://graph.microsoft.com/oidc/userinfo',
-    // Microsoft doesn't promise the email was verified, so we never use it to
-    // attach a Microsoft sign-in to an existing password account.
-    trustEmail: () => false,
-  },
 };
 const enabled = name => Boolean(PROVIDERS[name]?.clientId && PROVIDERS[name]?.clientSecret);
 const callbackUrl = name => `${PUBLIC_API_URL}/auth/${name}/callback`;
 const random = () => crypto.randomBytes(32).toString('base64url');
 
-// GET /auth/providers  ->  which sign-in buttons the page should show
+// GET /auth/providers  ->  whether the page should show the Google button
 oauthRouter.get('/providers', (req, res) => {
-  res.json({ google: enabled('google'), microsoft: enabled('microsoft') });
+  res.json({ google: enabled('google') });
 });
 
 // Sends the browser back to Slotted, with a short reason if something failed.
 const backToSite = (res, error) =>
   res.redirect(error ? `${SITE_URL}/?signin_error=${encodeURIComponent(error)}#welcome` : `${SITE_URL}/?signed_in=1#app`);
 
-// GET /auth/google/start, /auth/microsoft/start
+// GET /auth/google/start
 oauthRouter.get('/:provider/start', (req, res) => {
   const name = req.params.provider;
   if (!enabled(name)) return res.status(404).json({ error: 'That sign-in option is not available' });
@@ -81,7 +70,7 @@ oauthRouter.get('/:provider/start', (req, res) => {
   res.redirect(url.href);
 });
 
-// GET /auth/google/callback, /auth/microsoft/callback
+// GET /auth/google/callback
 oauthRouter.get('/:provider/callback', async (req, res) => {
   const name = req.params.provider;
   const saved = req.session?.oauth;
@@ -134,7 +123,7 @@ oauthRouter.get('/:provider/callback', async (req, res) => {
   }
 });
 
-// Returns the Slotted user ID for this Google/Microsoft account, creating or
+// Returns the Slotted user ID for this Google account, creating or
 // linking an account when needed. Returns null when it can't safely do either.
 async function findOrCreateUser(provider, providerUserId, email, emailTrusted, name) {
   const linked = await pool.query(

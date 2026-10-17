@@ -49,12 +49,11 @@ Secrets live only in `.env` on the server. It is in `.gitignore` and must never 
 | `COOKIE_SECURE` | yes (`true`) | Cookie only sent over HTTPS. |
 | `PUBLIC_API_URL` | yes | `https://api.taraskoval.ca`. Used in calendar links and sign-in callbacks. |
 | `ALLOWED_ORIGINS` | yes | `https://slotted.taraskoval.ca`. The only site allowed to call the API with cookies. |
-| `SITE_URL` | yes | `https://slotted.taraskoval.ca`. Where emails and Google/Microsoft sign-in send people back to. |
+| `SITE_URL` | yes | `https://slotted.taraskoval.ca`. Where emails and Google sign-in send people back to. |
 | `CLOUDFLARE_TUNNEL_TOKEN` | yes | Connects the tunnel. |
 | `BACKUP_DIR` | no | Folder on the server for backups. Default `/srv/backups/western-calendar`. |
 | `RESEND_API_KEY`, `MAIL_FROM` | no | Turn on "Forgot your password?" emails. Without them the page says resets aren't set up yet. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | no | Turn on "Continue with Google". |
-| `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` | no | Turn on "Continue with Microsoft". |
 
 After changing `.env`: `docker compose up -d` (it recreates only the containers whose settings changed).
 
@@ -93,20 +92,17 @@ Keep the old year in both places until that school year is over.
 3. Create an API key with "Sending access" only.
 4. In `.env`: `RESEND_API_KEY=re_...` and `MAIL_FROM=Slotted <noreply@taraskoval.ca>`, then `docker compose up -d`.
 
-## Optional: Google and Microsoft sign-in
+## Optional: Google sign-in
 
-**Google:** console.cloud.google.com → new project → *APIs & Services* → *OAuth consent screen* (External; scopes `openid`, `email`) → *Credentials* → *Create OAuth client ID* → *Web application*.
-- Authorised redirect URI: `https://api.taraskoval.ca/auth/google/callback`
-- Put the client ID and secret in `.env` as `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
-- Publish the consent screen ("In production") so people outside the test list can sign in.
+Set up in the Google Cloud project **Slotted** (console.cloud.google.com).
 
-**Microsoft:** entra.microsoft.com → *App registrations* → *New registration*.
-- Supported account types: *Accounts in any organizational directory and personal Microsoft accounts*.
-- Redirect URI: platform *Web*, `https://api.taraskoval.ca/auth/microsoft/callback`
-- *Certificates & secrets* → new client secret (copy the **Value**). Note its expiry date: sign-in stops working when it expires.
-- Put the Application (client) ID and the secret value in `.env` as `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET`.
+1. **Google Auth Platform → Get started**: app name `Slotted`, audience **External**, your Gmail as the contact.
+2. **Branding**: home page `https://slotted.taraskoval.ca`, privacy policy `https://slotted.taraskoval.ca/privacy.html`, authorized domain `taraskoval.ca`. No logo (a logo makes Google review the app first).
+3. **Clients → Create client → Web application**, with the redirect URI `https://api.taraskoval.ca/auth/google/callback`. Google shows the secret only once.
+4. **Audience → Publish app**, so it says "In production". Otherwise only test users can sign in.
+5. In `.env`: `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then `docker compose up -d`. `curl -s https://api.taraskoval.ca/auth/providers` should say `{"google":true}`.
 
-The buttons appear on the site by themselves once the settings are there. If someone signs in with Google and an account with that email already exists, the two are linked only when Google has confirmed the email. Microsoft emails are never linked automatically.
+The button appears on the site by itself once the settings are there. If someone signs in with Google and an account with that email already exists, the two are linked, because Google has confirmed the email.
 
 ## Testing on your own computer
 

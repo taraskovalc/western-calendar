@@ -56,7 +56,7 @@ const publicUser = row => ({
   email: row.email,
   displayName: row.display_name,
   theme: row.theme,
-  // Accounts made with Google/Microsoft may have no password. The page uses
+  // Accounts made with Google may have no password. The page uses
   // this to decide whether to ask for one before deleting the account.
   hasPassword: row.has_password ?? Boolean(row.password_hash),
 });
@@ -146,7 +146,7 @@ authRouter.delete('/account', requireAuth, async (req, res) => {
   if (!rows[0]) return res.status(404).json({ error: 'Account not found' });
 
   // Ask for the password again, so someone using a borrowed, signed-in laptop
-  // can't delete the account. (Google/Microsoft-only accounts have no password.)
+  // can't delete the account. (Google-only accounts have no password.)
   if (rows[0].password_hash && !(await argon2.verify(rows[0].password_hash, data.password ?? ''))) {
     return res.status(401).json({ error: 'Password is incorrect' });
   }

@@ -555,14 +555,10 @@ body { background-position: 0 0; }
 .forgot-link { justify-self: center; font-size: 14px; }
 .privacy-link-row { text-align: center; margin-top: 14px; font-size: 14px; }
 
-/* Continue with Google / Microsoft */
+/* Continue with Google */
 .oauth-buttons { display: grid; gap: 10px; margin-bottom: 4px; }
 .oauth { width: 100%; text-decoration: none; }
 .oauth-icon { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--paper-2); font: 700 14px/1 var(--sans); color: var(--accent-ink); }
-.oauth-icon.ms { grid-template-columns: 1fr 1fr; gap: 2px; width: 18px; height: 18px; border-radius: 0; background: none; }
-.oauth-icon.ms i { width: 8px; height: 8px; }
-.oauth-icon.ms i:nth-child(1) { background: #f25022; } .oauth-icon.ms i:nth-child(2) { background: #7fba00; }
-.oauth-icon.ms i:nth-child(3) { background: #00a4ef; } .oauth-icon.ms i:nth-child(4) { background: #ffb900; }
 .oauth-error:empty { display: none; }
 .oauth-error { margin-bottom: 12px; text-align: center; }
 

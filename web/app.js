@@ -717,7 +717,7 @@ function openAccountDialog() {
   const form = $('#delete-form');
   form.reset();
   formStatus(form, '');
-  // Accounts made with Google/Microsoft have no password to type.
+  // Accounts made with Google have no password to type.
   $('#delete-password-label').hidden = state.user.hasPassword === false;
   $('#dialog-account').showModal();
 }
@@ -786,7 +786,7 @@ $('#reset-form').addEventListener('submit', async event => {
 /* ================= start ================= */
 
 // Things that arrive in the address bar: a password-reset link, or the return
-// from Google/Microsoft sign-in. Read them, then remove them from the address
+// from Google sign-in. Read them, then remove them from the address
 // so they don't stay in the browser history.
 const params = new URLSearchParams(location.search);
 const resetToken = params.get('reset');
@@ -822,14 +822,11 @@ api('/auth/me').then(({ user }) => {
   renderWelcome();
 }).catch(() => {});
 
-// Show "Continue with Google / Microsoft" only for the ones set up on the server.
+// Show "Continue with Google" only if it's set up on the server.
 api('/auth/providers').then(providers => {
-  for (const name of ['google', 'microsoft']) {
-    const link = $(`#oauth-${name}`);
-    link.hidden = !providers?.[name];
-    link.href = `${API_URL}/auth/${name}/start`;
-  }
-  $('#oauth-buttons').hidden = !providers?.google && !providers?.microsoft;
+  $('#oauth-google').href = `${API_URL}/auth/google/start`;
+  $('#oauth-google').hidden = !providers?.google;
+  $('#oauth-buttons').hidden = !providers?.google;
 }).catch(() => {});
 
 if (resetToken) openResetDialog(resetToken);

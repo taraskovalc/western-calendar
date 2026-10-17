@@ -42,11 +42,9 @@ services:
       # Optional: email for "Forgot your password?" (see README.md)
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-}
-      # Optional: "Continue with Google / Microsoft" (see README.md)
+      # Optional: "Continue with Google" (see README.md)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
-      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
     ports:
       # Only reachable from the server itself (for curl tests). Everyone else
       # comes in through the Cloudflare tunnel below, never straight to port 3000.
