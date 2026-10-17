@@ -9,6 +9,12 @@ else that opens `.ics` files.
 
 ### → [slotted.taraskoval.ca](https://slotted.taraskoval.ca)
 
+<p align="center">
+  <img src="docs/screenshots/cover.jpg" alt="The Slotted cover: a closed notebook on a wooden desk" height="320">
+  &nbsp;
+  <img src="docs/screenshots/done.jpg" alt="The finished page: 335 classes added, 31 skipped for reading weeks and holidays, and your next class" height="320">
+</p>
+
 ## Why it exists
 
 DraftMySchedule shows your timetable, but it can't send it anywhere. The usual fix is typing every
