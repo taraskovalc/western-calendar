@@ -1,18 +1,20 @@
-// POST /report  ->  "Report a problem" from the website, emailed to Taras.
+// POST /report  ->  "Report a problem" from the website, emailed to Slotted's inbox.
 //
 // Nothing is stored: the report goes straight into an email (through Resend,
-// like password resets). If the person attaches their saved schedule page, it
-// rides along as an email attachment so the problem can be reproduced.
+// like password resets). No files are accepted. If the person adds their saved
+// schedule, the website reads it in their browser and sends only plain text
+// (the classes it found, or why it couldn't read them), so nothing that can run
+// ever reaches the inbox.
 import express from 'express';
 import { z } from 'zod';
 import { rateLimit } from 'express-rate-limit';
 import { validate } from '../validate.js';
 import { mailEnabled, sendMail } from '../mail.js';
+import { STEPS, buildReportEmail } from '../report-email.js';
 
 export const reportRouter = express.Router();
 
 const REPORT_EMAIL = process.env.REPORT_EMAIL;
-const MAX_FILE_BYTES = 700 * 1024;  // a real schedule page is about 70 KB
 
 // Max 5 reports per hour from one address (stops spam).
 const reportLimiter = rateLimit({
@@ -23,24 +25,25 @@ const reportLimiter = rateLimit({
   message: { error: 'Too many reports from here. Please try again in an hour.' },
 });
 
-const STEPS = {
-  'sign-in': 'Signing in or creating an account',
-  'calendar-app': 'Choosing a calendar app',
-  schedule: 'Adding the schedule file',
-  'add-to-calendar': 'Adding classes to a calendar',
-  'calendar-link': 'The calendar link',
-  other: 'Something else',
-};
+const text = max => z.string().trim().max(max);
+
+const scheduleSchema = z.object({
+  read: z.boolean(),
+  year: text(20).optional(),
+  error: text(300).optional(),
+  notes: z.array(text(300)).max(10).optional(),
+  rows: z.array(z.object({
+    course: text(20), type: text(10), section: text(10), days: text(30), time: text(30), room: text(60),
+  }).strict()).max(60).optional(),
+  table: z.string().max(12000).optional(),
+}).strict();
 
 const reportSchema = z.object({
   message: z.string().trim().min(10, 'Tell me a little more about what went wrong (at least 10 characters).').max(5000),
   step: z.enum(Object.keys(STEPS)).optional(),
   email: z.union([z.literal(''), z.string().trim().toLowerCase().email('That email address doesn\'t look right').max(254)]).optional(),
-  device: z.string().trim().max(200).optional(),
-  file: z.object({
-    name: z.string().trim().max(120).regex(/\.html?$/i, 'Only the saved .html schedule page can be attached'),
-    content: z.string().regex(/^[A-Za-z0-9+/]+=*$/, 'The attached file could not be read'),
-  }).strict().optional(),
+  device: text(200).optional(),
+  schedule: scheduleSchema.optional(),
   website: z.string().max(0).optional(),  // a hidden field only bots fill in
 }).strict();
 
@@ -51,28 +54,10 @@ reportRouter.post('/', reportLimiter, async (req, res) => {
   if (!mailEnabled || !REPORT_EMAIL) {
     return res.status(503).json({ error: "Reports can't be sent right now. Please try again later." });
   }
-  // base64 is 4 characters for every 3 bytes.
-  if (data.file && data.file.content.length * 0.75 > MAX_FILE_BYTES) {
-    return res.status(400).json({ error: 'That file is too large to be a saved schedule page.' });
-  }
 
-  const lines = [
-    `Where: ${data.step ? STEPS[data.step] : 'Not given'}`,
-    `Reply to: ${data.email || 'No email given'}`,
-    `Device: ${data.device || 'Not given'}`,
-    `Signed in: ${req.session?.userId ? 'yes' : 'no'}`,
-    `Attachment: ${data.file ? data.file.name : 'none'}`,
-    '',
-    data.message,
-  ];
+  const { subject, text: body, html } = buildReportEmail(data, Boolean(req.session?.userId));
   try {
-    await sendMail({
-      to: REPORT_EMAIL,
-      subject: `Slotted problem report: ${data.step ? STEPS[data.step] : 'general'}`,
-      text: lines.join('\n'),
-      replyTo: data.email || undefined,
-      attachments: data.file ? [{ filename: data.file.name, content: data.file.content }] : undefined,
-    });
+    await sendMail({ to: REPORT_EMAIL, subject, text: body, html, replyTo: data.email || undefined });
   } catch (err) {
     console.error('Problem report email failed:', err.message);
     return res.status(502).json({ error: "Your report couldn't be sent right now. Please try again in a few minutes." });

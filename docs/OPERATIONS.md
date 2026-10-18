@@ -93,6 +93,10 @@ Used for password resets and problem reports.
 
 If an email doesn't arrive, `docker compose logs --tail=20 api` shows why. The Resend dashboard lists every email sent.
 
+**Receiving.** `slotted@taraskoval.ca` is a Cloudflare Email Routing address (*taraskoval.ca → Email → Email Routing*) that forwards to `slotted.web@gmail.com`. Problem reports and replies to Slotted's emails go there. DNS also has a DMARC record: `TXT _dmarc` = `v=DMARC1; p=none;`.
+
+If an address bounces once, Resend adds it to its suppression list and stops sending to it. After fixing the cause, remove it there.
+
 ## Google sign-in
 
 Google Cloud project **Slotted**.

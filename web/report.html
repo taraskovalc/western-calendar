@@ -35,36 +35,38 @@
         <textarea name="message" required minlength="10" maxlength="5000"></textarea>
       </label>
 
-      <label><span>Where did it happen? <span class="hint">(optional)</span></span>
-        <select name="step">
-          <option value="">Choose a step</option>
-          <option value="sign-in">Signing in or creating an account</option>
-          <option value="calendar-app">Choosing a calendar app</option>
-          <option value="schedule">Adding the schedule file</option>
-          <option value="add-to-calendar">Adding classes to a calendar</option>
-          <option value="calendar-link">The calendar link</option>
-          <option value="other">Something else</option>
-        </select>
-      </label>
+      <fieldset class="choices">
+        <legend>Where did it happen? <span class="hint">(optional)</span></legend>
+        <div class="pills">
+          <label class="pill"><input type="radio" name="step" value="sign-in"><span>Signing in</span></label>
+          <label class="pill"><input type="radio" name="step" value="calendar-app"><span>Choosing a calendar app</span></label>
+          <label class="pill"><input type="radio" name="step" value="schedule"><span>Adding the schedule file</span></label>
+          <label class="pill"><input type="radio" name="step" value="add-to-calendar"><span>Adding classes to a calendar</span></label>
+          <label class="pill"><input type="radio" name="step" value="calendar-link"><span>The calendar link</span></label>
+          <label class="pill"><input type="radio" name="step" value="other"><span>Something else</span></label>
+        </div>
+      </fieldset>
 
       <label><span>Your email <span class="hint">(optional, only if you'd like a reply)</span></span>
         <input type="email" name="email" autocomplete="email" maxlength="254">
       </label>
 
-      <label><span>Your device and browser <span class="hint">(helps me reproduce it; change it if it's wrong)</span></span>
-        <input type="text" name="device" maxlength="200">
-      </label>
-
-      <label><span>Your saved schedule file <span class="hint">(optional)</span></span>
-        <span class="hint">If a class is missing or wrong, this helps the most. It has your name and courses in it, so only add it if you're comfortable. It's emailed to me and not stored anywhere.</span>
-        <input type="file" name="file" accept=".html,.htm,text/html">
-      </label>
+      <div class="file-field">
+        <label><span>Your saved schedule file <span class="hint">(optional)</span></span>
+          <span class="hint">Helps the most when a class is missing or wrong. Your file never leaves this page: Slotted reads it here and sends me only the class list it found, as plain text.</span>
+          <input type="file" name="file" accept=".html,.htm,text/html">
+        </label>
+        <div class="file-preview" id="file-preview" hidden></div>
+      </div>
 
       <!-- Left empty by people; bots fill it in. -->
       <div class="trap" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 
       <p class="status" id="report-status" role="status" aria-live="polite"></p>
-      <button type="submit" class="button" id="report-send">Send report</button>
+      <div class="send-row">
+        <button type="submit" class="button" id="report-send">Send report</button>
+        <p class="hint auto-note">Your browser and device type (like <span id="device-guess">Safari on Mac</span>) are added automatically, so I can try it the same way.</p>
+      </div>
     </form>
 
     <div class="sent" id="report-sent" hidden tabindex="-1">

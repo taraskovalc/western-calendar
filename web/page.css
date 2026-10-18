@@ -43,3 +43,22 @@ input[type="file"] { font: 15px Inter, system-ui, sans-serif; color: var(--muted
 .sent { padding: 22px; border-radius: 10px; background: var(--field); border-top: 4px solid var(--done); }
 .sent h2 { margin-top: 0; border: 0; padding: 0; }
 .trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* Report form: step choices, file preview, send row */
+fieldset.choices { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.choices legend { font-weight: 600; padding: 0; margin-bottom: 8px; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { display: inline-flex; font-weight: 500; cursor: pointer; }
+.pill input { position: absolute; opacity: 0; pointer-events: none; }
+.pill span { padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--field); font-size: .92rem; transition: border-color .15s, background .15s; }
+.pill:hover span { border-color: var(--muted); }
+.pill input:checked + span { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.pill input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.file-field { display: grid; gap: 10px; }
+.file-preview { padding: 12px 14px; border-radius: 10px; background: var(--field); font-size: .92rem; border-left: 4px solid var(--done); }
+.file-preview.bad { border-left-color: #b03a2e; }
+.file-preview ul { margin: 6px 0 0; padding-left: 1.1em; }
+.file-preview li { margin: 0; }
+.file-preview button { font: inherit; color: var(--accent); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+.send-row { display: grid; gap: 10px; }
+.auto-note { margin: 0; font-size: .85rem; }

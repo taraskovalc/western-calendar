@@ -32,7 +32,6 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'same-site' },
 }));                                        // standard security headers on every response
 app.use(requireJson);                       // data must be sent as JSON (blocks CSRF via forms)
-app.use('/report', express.json({ limit: '1mb' }));  // a problem report may carry the saved schedule page
 app.use(express.json({ limit: '100kb' }));  // read JSON request bodies; refuse anything huge
 app.use(createSessionMiddleware());         // know who is signed in (from the cookie)
 app.use('/auth', authRouter);               // /auth/register, /auth/login, /auth/logout, /auth/me, /auth/account
