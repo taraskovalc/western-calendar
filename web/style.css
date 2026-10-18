@@ -460,7 +460,7 @@ body { background: var(--wood); background-color: var(--desk); }
 .account-chip button { color: var(--desk-ink); }
 .footer { color: var(--desk-muted); text-shadow: 0 1px 0 rgb(0 0 0 / 6%); }
 .footer-made { color: var(--desk-ink); }
-.footer-links a { color: var(--desk-ink); }
+.footer-links a, .footer-links .link-button { color: var(--desk-ink); font-size: inherit; }
 .topbar-right { display: flex; align-items: center; gap: 16px; }
 
 /* theme switch: a little paper tag on the desk */
