@@ -1,6 +1,6 @@
 // report.html: the standalone "Report a problem" page, for anyone who opens
 // the link directly. (Inside Slotted, the same form opens as a dialog.)
-import { mountReportForm } from './report-form.js';
+import { mountReportForm } from './report-form.js?v=20261018';
 
 const step = new URLSearchParams(location.search).get('step') ?? '';
 mountReportForm(document.querySelector('#report-root'), {

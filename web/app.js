@@ -5,7 +5,7 @@ import { readSchedule, ScheduleReadError } from './parser.js';
 import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced } from '../shared/ics.js';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
-import { mountReportForm } from './report-form.js';
+import { mountReportForm } from './report-form.js?v=20261018';
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;  // real schedule pages are ~70 KB
 const VIEWS = ['cover', 'welcome', 'app', 'schedule', 'done'];
