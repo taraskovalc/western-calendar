@@ -5,7 +5,7 @@
 // Until RESEND_API_KEY and MAIL_FROM are set in .env, email is switched off and
 // the reset feature tells people it isn't available yet.
 const API_KEY = process.env.RESEND_API_KEY;
-const FROM = process.env.MAIL_FROM;  // e.g. "Slotted <noreply@taraskoval.ca>"
+const FROM = process.env.MAIL_FROM;  // e.g. "Slotted <slotted@taraskoval.ca>"
 
 export const mailEnabled = Boolean(API_KEY && FROM);
 

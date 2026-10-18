@@ -44,7 +44,7 @@ Secrets live only in `.env`. It's in `.gitignore`; never commit, share or screen
 | `SITE_URL` | yes | `https://slotted.taraskoval.ca`. Where emails and Google sign-in send people back to. |
 | `CLOUDFLARE_TUNNEL_TOKEN` | yes | Connects the tunnel. |
 | `RESEND_API_KEY`, `MAIL_FROM` | no | Email: password resets and problem reports. Without them, both say they aren't available. |
-| `REPORT_EMAIL` | no | Where problem reports go. Default `ktaras105@gmail.com`. |
+| `REPORT_EMAIL` | no | Where problem reports go. Default `slotted@taraskoval.ca`. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | no | "Continue with Google". |
 | `BACKUP_DIR` | no | Backup folder. Default `/srv/backups/western-calendar`. |
 
@@ -89,7 +89,7 @@ Used for password resets and problem reports.
 
 1. resend.com → **Domains → Add domain** → `taraskoval.ca`, region `us-east-1`. **Auto configure** adds the Cloudflare records (`send`, `rsend`, `resend._domainkey`). Wait for **Verified**.
 2. **API Keys → Create**: name `Slotted server`, permission **Sending access**, domain `taraskoval.ca`.
-3. `.env`: `RESEND_API_KEY=re_...` and `MAIL_FROM="Slotted <noreply@taraskoval.ca>"` (quotes needed).
+3. `.env`: `RESEND_API_KEY=re_...` and `MAIL_FROM="Slotted <slotted@taraskoval.ca>"` (quotes needed).
 
 If an email doesn't arrive, `docker compose logs --tail=20 api` shows why. The Resend dashboard lists every email sent.
 
