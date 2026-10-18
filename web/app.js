@@ -1118,3 +1118,16 @@ if (resetToken) openResetDialog(resetToken);
 if (signInError) show('welcome', { push: false });
 
 show(location.hash.slice(1) || 'cover', { push: false });
+
+// "Report a problem" and the privacy policy open in a new tab so nobody loses
+// the schedule they're working on. Opening that tab from script (instead of a
+// plain target="_blank" link) lets its "Back to Slotted" button close it again
+// in every browser, Safari included. Cmd/Ctrl-click still works as usual.
+document.addEventListener('click', event => {
+  const link = event.target.closest('a[target="_blank"]');
+  if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const url = new URL(link.href, location.href);
+  if (url.origin !== location.origin || !/\/(report|privacy)\.html$/.test(url.pathname)) return;
+  event.preventDefault();
+  if (!window.open(url.href, '_blank')) location.href = url.href;
+});
