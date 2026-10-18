@@ -17,15 +17,22 @@ else that opens `.ics` files.
 
 ## Why it exists
 
-DraftMySchedule shows your timetable, but it can't send it anywhere. The usual fix is typing every
-class into a calendar by hand, then remembering to delete reading week. Slotted does that part.
+A lot of students I know type every class into their calendar by hand. I always went looking for
+a tool to do it for me instead, but the one I found felt sketchy: it had me do things I didn't
+understand, and I ended up with a calendar that worked and no idea how it got there.
+
+So I built the opposite. Slotted is free, it explains every step, and it's for anyone who just
+wants their courses in their calendar each year, with no strings attached: no account needed,
+nothing to install, and instructions for the calendar app you actually use.
 
 ## How it works
 
-1. Save your **My Current Schedule** page from DraftMySchedule.
-2. Drop the file into Slotted. It's read in your browser and never uploaded.
-3. Download a calendar file, or sign in and get a private link that keeps your calendar up to
-   date when your classes change.
+1. Pick your calendar app. Every step after that is written for it.
+2. Slotted shows you where to find your **My Current Schedule** page in DraftMySchedule and how to
+   save it.
+3. Drop the file in. It's read in your browser and never uploaded.
+4. Download your calendar file and follow the steps to add it. Or, if you want, sign in for a
+   private link that keeps your calendar up to date when your classes change.
 
 ## Under the hood
 
