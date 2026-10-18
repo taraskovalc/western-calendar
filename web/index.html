@@ -455,7 +455,7 @@
           </div>
 
           <p class="check-note" id="check-note">Something not right? Compare a few classes with DraftMySchedule. If your schedule changes later, come back and make a new file.</p>
-          <p class="check-note report-note">Found a class that's missing or wrong? <a href="report.html?step=add-to-calendar" target="_blank" rel="noopener">Report a problem</a> and it'll get fixed.</p>
+          <p class="check-note report-note">Found a class that's missing or wrong? <button type="button" class="link-button" data-open="report" data-step="add-to-calendar">Report a problem</button> and it'll get fixed.</p>
 
           <div class="nav-row">
             <button type="button" class="button-plain" data-go="schedule">← Back to my classes</button>
@@ -468,7 +468,7 @@
     <footer class="footer">
       <p class="footer-made">Made by <a href="https://taraskoval.ca">Taras Koval</a>, a student at Western</p>
       <p class="footer-fine">Slotted isn't affiliated with Western University. Always check important dates against Western's official academic calendar.</p>
-      <p class="footer-links"><a href="report.html" target="_blank" rel="noopener">Report a problem</a> · <button type="button" class="link-button" data-open="privacy">Privacy</button> · <a href="https://github.com/taraskovalc/western-calendar">Source code on GitHub</a></p>
+      <p class="footer-links"><button type="button" class="link-button" data-open="report">Report a problem</button> · <button type="button" class="link-button" data-open="privacy">Privacy</button> · <a href="https://github.com/taraskovalc/western-calendar">Source code on GitHub</a></p>
     </footer>
   </div>
 
@@ -495,6 +495,14 @@
     <h3>Deleting it</h3>
     <p>Sign in, open <b>Account</b> at the top of the page, and choose <b>Delete my account</b>. Your account, schedules and calendar links are removed straight away (and from backups within 14 days). Questions: <a href="mailto:slotted@taraskoval.ca">slotted@taraskoval.ca</a>.</p>
     <p><a href="privacy.html" target="_blank" rel="noopener">Read the full privacy policy</a> (opens in a new tab)</p>
+  </dialog>
+
+  <dialog class="paper-dialog report-dialog" id="dialog-report" aria-labelledby="report-title">
+    <form method="dialog" class="dialog-close-form"><button class="dialog-close" aria-label="Close">×</button></form>
+    <h2 id="report-title">Report a problem</h2>
+    <p>Something missing, wrong, or broken? Tell me here and I'll look into it. I'm Taras, the student who made Slotted, and this goes straight to me. Your schedule here stays exactly as it is.</p>
+    <div id="report-root"></div>
+    <p class="report-fine">What happens to a report is explained in the <a href="privacy.html" target="_blank" rel="noopener">privacy policy</a>.</p>
   </dialog>
 
   <dialog class="paper-dialog" id="dialog-account" aria-labelledby="account-title">

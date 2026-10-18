@@ -1,29 +1,27 @@
-// "Back to Slotted" on the privacy and report pages.
+// The privacy and report pages, when Slotted opened them in a new tab.
 //
-// Slotted opens these pages in a new tab, so nobody loses the schedule they're
-// working on. If that's how this tab was opened, going "back" closes it, and
-// the person lands on their original Slotted tab exactly as they left it.
-// Otherwise (a bookmark, a shared link, a refresh) the links work normally.
-function openedByOtherSlottedTab() {
-  try {
-    return Boolean(window.opener) && window.opener.location.origin === location.origin;
-  } catch {
-    return false;  // opened by some other website
+// Slotted opens the full privacy policy in its own tab, so nobody loses the
+// schedule they're working on. In that tab, a "Back to Slotted" link would
+// start Slotted over from the beginning, so instead it says to close the tab.
+// (Browsers don't reliably let a page close its own tab.)
+// sessionStorage belongs to this one tab, so the note stays if the person
+// moves between the privacy and report pages inside it.
+const KEY = 'slotted-extra-tab';
+let extraTab = false;
+try {
+  if (history.length === 1 && document.referrer.startsWith(location.origin) &&
+      !/\/(report|privacy)\.html/.test(new URL(document.referrer).pathname)) {
+    sessionStorage.setItem(KEY, '1');
   }
-}
-const openedFromSlotted = openedByOtherSlottedTab() || (
-  history.length === 1 &&
-  document.referrer.startsWith(location.origin) &&
-  !/\/(report|privacy)\.html/.test(new URL(document.referrer).pathname));
+  extraTab = sessionStorage.getItem(KEY) === '1';
+} catch { /* storage blocked: links stay as they are */ }
 
-if (openedFromSlotted) {
+if (extraTab) {
   for (const link of document.querySelectorAll('a[href="./"]')) {
-    link.addEventListener('click', event => {
-      event.preventDefault();
-      try { window.opener?.focus(); } catch { /* not ours */ }
-      window.close();
-      // If the browser didn't allow closing the tab, go back the normal way.
-      setTimeout(() => { location.href = link.href; }, 250);
-    });
+    if (link.classList.contains('brand')) continue;  // the logo can stay a link
+    const note = document.createElement('span');
+    note.className = link.className ? `${link.className} close-note` : 'close-note';
+    note.textContent = 'Close this tab to go back to Slotted';
+    link.replaceWith(note);
   }
 }

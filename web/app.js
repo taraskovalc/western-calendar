@@ -5,6 +5,7 @@ import { readSchedule, ScheduleReadError } from './parser.js';
 import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced } from '../shared/ics.js';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
+import { mountReportForm } from './report-form.js';
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;  // real schedule pages are ~70 KB
 const VIEWS = ['cover', 'welcome', 'app', 'schedule', 'done'];
@@ -974,6 +975,20 @@ document.querySelectorAll('[data-open="privacy"]').forEach(button => button.addE
   document.querySelectorAll('dialog[open]').forEach(d => d.close());
   $('#dialog-privacy').showModal();
 }));
+// "Report a problem" opens as a dialog, so nobody leaves the page or loses
+// their progress. A fresh form each time; a link can pre-pick the step.
+document.querySelectorAll('[data-open="report"]').forEach(button => button.addEventListener('click', () => {
+  document.querySelectorAll('dialog[open]').forEach(d => d.close());
+  const dialog = $('#dialog-report');
+  mountReportForm($('#report-root'), {
+    step: button.dataset.step ?? '',
+    buttonClass: 'button-ink',
+    doneHtml: '<p><button type="button" class="button-plain" data-report-done>Back to Slotted</button></p>',
+    onDone: () => dialog.close(),
+  });
+  dialog.showModal();
+  dialog.querySelector('textarea').focus();
+}));
 // Clicking the dark area around a dialog closes it.
 document.querySelectorAll('.paper-dialog').forEach(dialog => dialog.addEventListener('click', event => {
   if (event.target === dialog) dialog.close();
@@ -1118,16 +1133,3 @@ if (resetToken) openResetDialog(resetToken);
 if (signInError) show('welcome', { push: false });
 
 show(location.hash.slice(1) || 'cover', { push: false });
-
-// "Report a problem" and the privacy policy open in a new tab so nobody loses
-// the schedule they're working on. Opening that tab from script (instead of a
-// plain target="_blank" link) lets its "Back to Slotted" button close it again
-// in every browser, Safari included. Cmd/Ctrl-click still works as usual.
-document.addEventListener('click', event => {
-  const link = event.target.closest('a[target="_blank"]');
-  if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-  const url = new URL(link.href, location.href);
-  if (url.origin !== location.origin || !/\/(report|privacy)\.html$/.test(url.pathname)) return;
-  event.preventDefault();
-  if (!window.open(url.href, '_blank')) location.href = url.href;
-});

@@ -29,51 +29,7 @@
     <h1>Report a problem</h1>
     <p class="updated">Something missing, wrong, or broken? Tell me here and I'll look into it. I'm Taras, the student who made Slotted, and this goes straight to me.</p>
 
-    <form id="report-form" novalidate>
-      <label><span>What went wrong?</span>
-        <span class="hint">For example: "My Tuesday lab is missing" or "The download button does nothing."</span>
-        <textarea name="message" required minlength="10" maxlength="5000"></textarea>
-      </label>
-
-      <fieldset class="choices">
-        <legend>Where did it happen? <span class="hint">(optional)</span></legend>
-        <div class="pills">
-          <label class="pill"><input type="radio" name="step" value="sign-in"><span>Signing in</span></label>
-          <label class="pill"><input type="radio" name="step" value="calendar-app"><span>Choosing a calendar app</span></label>
-          <label class="pill"><input type="radio" name="step" value="schedule"><span>Adding the schedule file</span></label>
-          <label class="pill"><input type="radio" name="step" value="add-to-calendar"><span>Adding classes to a calendar</span></label>
-          <label class="pill"><input type="radio" name="step" value="calendar-link"><span>The calendar link</span></label>
-          <label class="pill"><input type="radio" name="step" value="other"><span>Something else</span></label>
-        </div>
-      </fieldset>
-
-      <label><span>Your email <span class="hint">(optional, only if you'd like a reply)</span></span>
-        <input type="email" name="email" autocomplete="email" maxlength="254">
-      </label>
-
-      <div class="file-field">
-        <label><span>Your saved schedule file <span class="hint">(optional)</span></span>
-          <span class="hint">Helps the most when a class is missing or wrong. Your file never leaves this page: Slotted reads it here and sends me only the class list it found, as plain text.</span>
-          <input type="file" name="file" accept=".html,.htm,text/html">
-        </label>
-        <div class="file-preview" id="file-preview" hidden></div>
-      </div>
-
-      <!-- Left empty by people; bots fill it in. -->
-      <div class="trap" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-
-      <p class="status" id="report-status" role="status" aria-live="polite"></p>
-      <div class="send-row">
-        <button type="submit" class="button" id="report-send">Send report</button>
-        <p class="hint auto-note">Your browser and device type (like <span id="device-guess">Safari on Mac</span>) are added automatically, so I can try it the same way.</p>
-      </div>
-    </form>
-
-    <div class="sent" id="report-sent" hidden tabindex="-1">
-      <h2>Thanks, it's sent.</h2>
-      <p id="report-sent-text">I read every report. If you left your email, I'll reply there.</p>
-      <p><a href="./">← Back to Slotted</a></p>
-    </div>
+    <div id="report-root"></div>
 
     <footer>What happens to a report is explained in the <a href="privacy.html">privacy policy</a>. Slotted isn't affiliated with Western University.</footer>
   </main>
