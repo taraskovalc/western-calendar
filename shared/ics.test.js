@@ -149,13 +149,56 @@ test('parts: lectures only leaves labs out; labs only leaves lectures out', () =
   assert.ok(buildCalendar({ courses: [fallClass, labClass], terms, include: 'fall', parts: 'labs' }).added.every(a => a.component === 'LAB'));
 });
 
-test('every other week, with first and last dates', () => {
+// The days a calendar app shows for the one event in `ics`: its weekly rule
+// from DTSTART to UNTIL, minus every EXDATE.
+function expand(ics) {
+  const start = /DTSTART;TZID=America\/Toronto:(\d{8})/.exec(ics)[1];
+  const until = /UNTIL=(\d{8})/.exec(ics)[1];
+  const iso = d => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+  const ex = new Set([...ics.matchAll(/EXDATE;TZID=America\/Toronto:(\d{8})/g)].map(m => iso(m[1])));
+  const out = [];
+  for (let d = new Date(`${iso(start)}T00:00:00Z`); d < new Date(`${iso(until)}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 7)) {
+    const day = d.toISOString().slice(0, 10);
+    if (!ex.has(day)) out.push(day);
+  }
+  return out;
+}
+
+test('every other week, with first and last dates, pushed back past days off', () => {
+  // Sep 30 and Oct 14 are days off, so from Sep 30 on every lab moves back a
+  // week: still six labs, the last one on Dec 2 instead of Nov 25.
   const lab = { ...labClass, repeat: { every: 2, first: '2026-09-16', last: '2026-11-25' } };
   const ics = buildCalendar({ courses: [lab], terms, include: 'fall' }).ics;
-  assert.match(ics, /DTSTART;TZID=America\/Toronto:20260916T103000/);
-  assert.match(ics, /RRULE:FREQ=WEEKLY;INTERVAL=2;WKST=MO;BYDAY=WE;UNTIL=20261126T035959Z/);
   const days = meetingDays(lab, lab.meetings[0], terms[0]).map(d => d.iso);
-  assert.deepEqual(days, ['2026-09-16', '2026-09-30', '2026-10-14', '2026-10-28', '2026-11-11', '2026-11-25']);
+  assert.deepEqual(days, ['2026-09-16', '2026-10-07', '2026-10-21', '2026-11-04', '2026-11-18', '2026-12-02']);
+  assert.match(ics, /DTSTART;TZID=America\/Toronto:20260916T103000/);
+  assert.match(ics, /RRULE:FREQ=WEEKLY;BYDAY=WE;UNTIL=20261203T035959Z/);
+  assert.deepEqual(expand(ics), days);
+});
+
+test('weekly labs are pushed back too, but never past the end of the term', () => {
+  // Weekly, Sep 9 to Oct 28: eight weeks, two of them days off -> eight labs ending Nov 11.
+  const lab = { ...labClass, repeat: { every: 1, first: null, last: '2026-10-28' } };
+  const days = meetingDays(lab, lab.meetings[0], terms[0]).map(d => d.iso);
+  assert.equal(days.length, 8);
+  assert.equal(days.at(-1), '2026-11-11');
+  assert.ok(!days.includes('2026-09-30') && !days.includes('2026-10-14'));
+  // No settings: the whole term, nothing pushed past Dec 9.
+  const plain = meetingDays(labClass, labClass.meetings[0], terms[0]).map(d => d.iso);
+  assert.equal(plain.at(-1), '2026-12-09');
+  assert.equal(plain.length, 12);
+  assert.deepEqual(expand(buildCalendar({ courses: [labClass], terms, include: 'fall' }).ics), plain);
+});
+
+test('lab days picked by hand', () => {
+  const lab = { ...labClass, repeat: { every: 1, first: null, last: null, dates: ['2026-09-23', '2026-09-30', '2026-10-21', '2026-11-18', '2027-01-06'] } };
+  const days = meetingDays(lab, lab.meetings[0], terms[0]).map(d => d.iso);
+  assert.deepEqual(days, ['2026-09-23', '2026-10-21', '2026-11-18']);  // Sep 30 is a day off
+  const ics = buildCalendar({ courses: [lab], terms, include: 'fall' }).ics;
+  assert.deepEqual(expand(ics), days);
+  // None picked in a term: nothing added for it.
+  const none = { ...labClass, repeat: { dates: [] } };
+  assert.equal(buildCalendar({ courses: [none], terms, include: 'fall' }).added.length, 0);
 });
 
 test('a first date after the term ends adds nothing for that term', () => {

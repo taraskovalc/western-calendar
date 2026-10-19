@@ -40,11 +40,13 @@ const courseSchema = z.object({
   instructor: text(60).default(''),
   delivery: text(40).default(''),
   meetings: z.array(meetingSchema).min(1).max(10),
-  // Labs and tutorials: every week or every other week, and between which dates.
+  // Labs and tutorials: every week or every other week, and between which dates,
+  // or exactly the days the person picked by hand (dates).
   repeat: z.object({
-    every: z.union([z.literal(1), z.literal(2)]),
-    first: day.nullable(),
-    last: day.nullable(),
+    every: z.union([z.literal(1), z.literal(2)]).default(1),
+    first: day.nullable().default(null),
+    last: day.nullable().default(null),
+    dates: z.array(day).max(80).optional(),
   }).strict()
     .refine(r => !r.first || !r.last || r.last >= r.first, { message: 'The last date must be on or after the first', path: ['last'] })
     .optional(),

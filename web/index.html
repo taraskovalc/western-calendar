@@ -21,8 +21,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261021">
-  <script type="module" src="app.js?v=20261023"></script>
+  <link rel="stylesheet" href="style.css?v=20261024">
+  <script type="module" src="app.js?v=20261024"></script>
 </head>
 <body>
   <div class="desk">
@@ -299,17 +299,35 @@
             <h3 class="part-title"><span>Check your classes</span></h3>
             <p class="part-hint" id="found-summary"></p>
 
-            <div class="term-tabs" role="tablist" aria-label="Term">
-              <button type="button" role="tab" class="term-tab" data-term="fall" aria-selected="true">Fall term</button>
-              <button type="button" role="tab" class="term-tab" data-term="winter" aria-selected="false">Winter term</button>
+            <div class="segmented preview-switch" role="radiogroup" aria-label="Show">
+              <label><input type="radio" name="preview" value="month" checked><span>Month</span></label>
+              <label><input type="radio" name="preview" value="week"><span>Week</span></label>
             </div>
-            <p class="term-range" id="term-range"></p>
-            <p class="days-off" id="days-off"></p>
 
-            <div class="week-wrap" aria-hidden="true">
-              <div class="week" id="week"></div>
+            <div id="month-part">
+              <div class="month-head">
+                <button type="button" class="month-step" id="month-prev" aria-label="Previous month">‹</button>
+                <h4 class="month-title" id="month-title" aria-live="polite"></h4>
+                <button type="button" class="month-step" id="month-next" aria-label="Next month">›</button>
+              </div>
+              <p class="month-note" id="month-note"></p>
+              <div class="month" id="month"></div>
+              <div class="month-agenda" id="month-agenda" aria-live="polite"></div>
             </div>
-            <div class="day-list" id="day-list"></div>
+
+            <div id="week-part" hidden>
+              <div class="term-tabs" role="tablist" aria-label="Term">
+                <button type="button" role="tab" class="term-tab" data-term="fall" aria-selected="true">Fall term</button>
+                <button type="button" role="tab" class="term-tab" data-term="winter" aria-selected="false">Winter term</button>
+              </div>
+              <p class="term-range" id="term-range"></p>
+              <p class="days-off" id="days-off"></p>
+
+              <div class="week-wrap" aria-hidden="true">
+                <div class="week" id="week"></div>
+              </div>
+              <div class="day-list" id="day-list"></div>
+            </div>
 
             <div class="margin-note" id="extra-notes" hidden>
               <h4>Not added to the calendar</h4>
@@ -391,7 +409,7 @@
               </fieldset>
               <fieldset class="option option-wide" id="labs-option" hidden>
                 <legend>Your labs and tutorials</legend>
-                <p class="option-note labs-intro">DraftMySchedule lists every lab as weekly. If one only runs every other week, or starts later or ends earlier than the term, set it here. Check your course outline for the exact weeks.</p>
+                <p class="option-note labs-intro">DraftMySchedule lists every lab as weekly. If one only runs every other week, or starts later or ends earlier than the term, set it here, or pick the exact days. When a lab lands on a holiday or reading week, it and the ones after it move back a week. Check your course outline for the exact weeks.</p>
                 <p class="option-note labs-term" id="labs-term"></p>
                 <ul class="labs-list" id="labs-list"></ul>
               </fieldset>
@@ -573,6 +591,19 @@
     <p>Something missing, wrong, or broken? Tell me here and I'll look into it. I'm Taras, the student who made Slotted, and this goes straight to me. Your schedule here stays exactly as it is.</p>
     <div id="report-root"></div>
     <p class="report-fine">What happens to a report is explained in the <a href="privacy.html" target="_blank" rel="noopener">privacy policy</a>.</p>
+  </dialog>
+
+  <dialog class="paper-dialog labdays-dialog" id="dialog-labdays" aria-labelledby="labdays-title">
+    <form method="dialog" class="dialog-close-form"><button class="dialog-close" aria-label="Close">×</button></form>
+    <h2 id="labdays-title"></h2>
+    <p class="labdays-when" id="labdays-when"></p>
+    <p id="labdays-help"></p>
+    <div class="labdays-months" id="labdays-months"></div>
+    <div class="labdays-actions">
+      <p class="labdays-count" id="labdays-count" aria-live="polite"></p>
+      <button type="button" class="button-plain" id="labdays-cancel">Cancel</button>
+      <button type="button" class="button-ink" id="labdays-save">Use these days</button>
+    </div>
   </dialog>
 
   <dialog class="paper-dialog" id="dialog-account" aria-labelledby="account-title">

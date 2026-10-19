@@ -183,10 +183,74 @@ export function meetingWindow(course, meeting, term) {
   return { weekdays, first, until: toDate(end), every: repeat.every === 2 ? 2 : 1 };
 }
 
+// Every day a meeting COULD land on in one term (each week on its weekdays),
+// as [{ iso, off }]. Used to show all the possible lab days to pick from.
+export function possibleDays(meeting, term) {
+  const weekdays = (meeting.days ?? []).map(d => DAYS[d]).filter(d => d !== undefined);
+  const off = new Set(term.no_class_dates ?? []);
+  const out = [];
+  for (let d = toDate(term.starts_on); isoOf(d) <= term.ends_on; d = addDays(d, 1)) {
+    if (weekdays.includes(d.getUTCDay())) out.push({ iso: isoOf(d), off: off.has(isoOf(d)) });
+  }
+  return out;
+}
+
+// The days a lab or tutorial actually happens in one term, sorted.
+//
+//   repeat.dates          picked by hand: exactly those days (minus days off)
+//   otherwise             a pattern: every week or every other week, from the
+//                         first day to the last day. A lab that lands on a
+//                         holiday or reading week is PUSHED BACK a week, and
+//                         the ones after it move back too, so no lab is lost
+//                         (as long as the term hasn't ended).
+export function labDays(course, meeting, term) {
+  return labPlan(course, meeting, term).days;
+}
+
+// labDays, plus `pushed`: the days off that pushed later labs back a week,
+// and `lost`: how many were pushed past the end of the term.
+export function labPlan(course, meeting, term) {
+  const possible = possibleDays(meeting, term);
+  const repeat = course.repeat ?? {};
+  if (Array.isArray(repeat.dates)) {
+    const picked = new Set(repeat.dates);
+    return { days: possible.filter(d => picked.has(d.iso) && !d.off).map(d => d.iso), pushed: [], lost: 0 };
+  }
+  const window = meetingWindow(course, meeting, term);
+  if (!window) return { days: [], pushed: [], lost: 0 };
+  const start = isoOf(window.first);
+  const end = isoOf(window.until);
+  const every = window.every;
+  const firstWeek = mondayOf(window.first).getTime();
+  const weekOf = iso => Math.round((mondayOf(toDate(iso)).getTime() - firstWeek) / (7 * 86_400_000));
+  const out = [];
+  const pushed = [];
+  let lost = 0;      // pushed past the end of the term, so left out
+  // Each weekday is its own run (a lab that meets Tuesday and Thursday is two runs).
+  for (const weekday of window.weekdays) {
+    const run = possible.filter(d => toDate(d.iso).getUTCDay() === weekday);
+    // How many labs the pattern has, as if there were no days off.
+    const planned = run.filter(d => d.iso >= start && d.iso <= end && weekOf(d.iso) % every === 0);
+    if (!planned.length) continue;
+    let i = run.findIndex(d => d.iso === planned[0].iso);
+    let placed = 0;
+    while (placed < planned.length && i < run.length) {
+      if (run[i].off) { pushed.push(run[i].iso); i++; continue; }  // a day off: try the same day next week
+      out.push(run[i].iso);
+      placed++;
+      i += every;
+    }
+    lost += planned.length - placed;
+  }
+  return { days: out.sort(), pushed: pushed.sort(), lost };
+}
+
 // Every day the meeting lands on in one term, as [{ iso, off }]
 // (off = a holiday or reading-week day, so the class doesn't happen).
-// Matches exactly what the calendar file's repeat rule produces.
+// Matches exactly what the calendar file produces. Labs and tutorials only
+// list the days they really happen (see labDays).
 export function meetingDays(course, meeting, term) {
+  if (isLabPart(course.component)) return labDays(course, meeting, term).map(iso => ({ iso, off: false }));
   const window = meetingWindow(course, meeting, term);
   if (!window) return [];
   const { weekdays, first, until, every } = window;
@@ -258,13 +322,27 @@ export function buildCalendar({
         const season = term.season;
         // First class = first matching weekday on or after the term's first day
         // (or the course's own first date, if it starts later).
-        const window = meetingWindow(course, meeting, term);
-        if (!window) continue;
-        const { first } = window;
+        // Lectures: weekly from the first class to the end, minus days off.
+        // Labs and tutorials: their exact days (every other week, pushed back
+        // past days off, or picked by hand), written as a weekly rule from the
+        // first one to the last one, minus every week they don't happen.
+        let first, lastDay, skip;
+        if (isLabPart(course.component)) {
+          const days = labDays(course, meeting, term);
+          if (!days.length) continue;
+          const happens = new Set(days);
+          first = toDate(days[0]);
+          lastDay = toDate(days.at(-1));
+          skip = possibleDays(meeting, term).map(d => d.iso).filter(iso => iso > days[0] && iso < days.at(-1) && !happens.has(iso));
+        } else {
+          const window = meetingWindow(course, meeting, term);
+          if (!window) continue;
+          first = window.first;
+          lastDay = window.until;
+          skip = (term.no_class_dates ?? []).filter(day => weekdays.includes(toDate(day).getUTCDay()));
+        }
         // UNTIL is in UTC: 03:59:59Z the next day = after any class, in EST or EDT.
-        const until = ymd(addDays(window.until, 1)) + 'T035959Z';
-        // Every other week: weeks counted Monday to Sunday from the first one.
-        const interval = window.every === 2 ? ';INTERVAL=2;WKST=MO' : '';
+        const until = ymd(addDays(lastDay, 1)) + 'T035959Z';
 
         // Everything that makes this event different from the others goes into
         // its UID, so two events in one calendar can never share one.
@@ -284,14 +362,12 @@ export function buildCalendar({
           `SUMMARY:${escapeText(`${code} ${course.component}`)}`,
           `DTSTART;TZID=America/Toronto:${ymd(first)}T${hhmmss(meeting.start)}`,
           `DTEND;TZID=America/Toronto:${ymd(first)}T${hhmmss(meeting.end)}`,
-          `RRULE:FREQ=WEEKLY${interval};BYDAY=${weekdays.map(d => ICAL_DAYS[d]).join(',')};UNTIL=${until}`,
+          `RRULE:FREQ=WEEKLY;BYDAY=${weekdays.map(d => ICAL_DAYS[d]).join(',')};UNTIL=${until}`,
           `DESCRIPTION:${escapeText(details.join('\n'))}`,
         );
         if (meeting.room) lines.push(`LOCATION:${escapeText(meeting.room)}`);
-        for (const day of term.no_class_dates ?? []) {
-          if (weekdays.includes(toDate(day).getUTCDay())) {
-            lines.push(`EXDATE;TZID=America/Toronto:${ymd(toDate(day))}T${hhmmss(meeting.start)}`);
-          }
+        for (const day of skip) {
+          lines.push(`EXDATE;TZID=America/Toronto:${ymd(toDate(day))}T${hhmmss(meeting.start)}`);
         }
         if (alarmMinutes > 0) {
           lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${escapeText(code)}`,

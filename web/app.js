@@ -2,7 +2,7 @@
 // Rule used throughout: text from the schedule file is only ever shown with
 // textContent (never innerHTML), so it can't inject anything into the page.
 import { readSchedule, ScheduleReadError } from './parser.js';
-import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays } from '../shared/ics.js?v=20261023';
+import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays, labPlan, labDays, possibleDays } from '../shared/ics.js?v=20261024';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
 import { mountReportForm } from './report-form.js?v=20261018';
@@ -29,7 +29,10 @@ const state = {
   scheduleName: null,
   saveResult: null,    // { ok, message } after saving to the account
   feed: null,          // { url, webcalUrl } once a calendar link exists
-  myNames: [],         // names of the saved schedules, so a new one gets its own name
+  myNames: [],
+  month: null,         // the month the preview shows, 'YYYY-MM'
+  monthDay: null,      // the day picked in it
+  monthColours: new Map(),         // names of the saved schedules, so a new one gets its own name
 };
 
 /* ================= helpers ================= */
@@ -441,6 +444,7 @@ function meetingsFor(season) {
   const out = [];
   for (const course of state.courses) {
     if (!seasonsFor(course.number).includes(season)) continue;
+    if (!partIncluded(course.component, chosen('parts') ?? 'all')) continue;
     for (const meeting of course.meetings) {
       if (!meeting.start || !meeting.days.length) continue;
       for (const day of meeting.days) out.push({ course, meeting, day });
@@ -457,11 +461,9 @@ function renderCheck(notes) {
   const timed = state.courses.filter(hasTime);
   const untimed = state.courses.filter(c => !hasTime(c));
   const unplaced = timed.filter(c => whyNotPlaced(c.number));
-  $('#found-summary').textContent = 'Compare this week with DraftMySchedule before you continue.';
   // Open the term that's next: winter once fall classes are over.
   const fallOver = localDate(new Date()) > (state.terms.find(t => t.season === 'fall')?.ends_on ?? '');
   state.tab = (fallOver && meetingsFor('winter').length) || !meetingsFor('fall').length ? 'winter' : 'fall';
-  renderWeek();
 
   $('#not-added').replaceChildren(
     ...untimed.map(c =>
@@ -482,6 +484,8 @@ function renderCheck(notes) {
   }
   renderLabOptions();
   updateNameOption();
+  resetPreview();
+  renderPreview();
   $('#notes-list').replaceChildren(...allNotes.map(n => el('li', { text: n })));
   $('#read-notes').hidden = allNotes.length === 0;
 }
@@ -587,6 +591,183 @@ function renderWeek() {
 }
 document.querySelectorAll('.term-tab').forEach(tab => tab.addEventListener('click', () => { state.tab = tab.dataset.term; renderWeek(); }));
 
+/* ---------- the preview: a month (what the calendar app will show) or a typical week ---------- */
+
+const previewView = () => chosen('preview') ?? 'month';
+const MONTH_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const monthName = key => new Date(`${key}-15T12:00:00Z`).toLocaleDateString('en-CA', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const shiftMonth = (key, n) => {
+  const d = new Date(`${key}-15T12:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + n);
+  return d.toISOString().slice(0, 7);
+};
+
+// The first and last day of the chosen term(s).
+function chosenRange() {
+  const terms = state.terms.filter(t => chosenTerms() === 'both' || t.season === chosenTerms());
+  return { start: terms.map(t => t.starts_on).sort()[0], end: terms.map(t => t.ends_on).sort().at(-1), terms };
+}
+
+// The month to open on: this month, or the month classes start if they
+// haven't started yet (or the last month, if they're over).
+function startingMonth() {
+  const { start, end } = chosenRange();
+  const today = localDate(new Date());
+  if (!start) return today.slice(0, 7);
+  if (today < start) return start.slice(0, 7);
+  if (today > end) return end.slice(0, 7);
+  return today.slice(0, 7);
+}
+
+// Every class in one month, after all the choices: term, what to add, and
+// each lab's days. Returns Map(iso -> [{ course, meeting }]) sorted by time.
+function classesIn(month) {
+  const out = new Map();
+  for (const course of state.courses) {
+    if (!partIncluded(course.component, chosen('parts') ?? 'all') || whyNotPlaced(course.number)) continue;
+    for (const term of periodsFor(course.number, state.terms, chosenTerms())) {
+      for (const meeting of course.meetings) {
+        if (!meeting.start || !meeting.days.length) continue;
+        for (const { iso, off } of meetingDays(course, meeting, term)) {
+          if (off || !iso.startsWith(month)) continue;
+          if (!out.has(iso)) out.set(iso, []);
+          out.get(iso).push({ course, meeting });
+        }
+      }
+    }
+  }
+  for (const list of out.values()) list.sort((a, b) => minutes(a.meeting.start) - minutes(b.meeting.start));
+  return out;
+}
+
+function colourFor(course) {
+  if (!state.monthColours.has(courseKey(course))) state.monthColours.set(courseKey(course), state.monthColours.size % COLOURS);
+  return state.monthColours.get(courseKey(course));
+}
+const paint = (node, course) => {
+  const c = colourFor(course);
+  node.style.setProperty('--bg-c', `var(--c${c})`);
+  node.style.setProperty('--edge-c', `var(--e${c})`);
+  return node;
+};
+
+function renderMonth() {
+  const month = state.month;
+  const { start, end, terms } = chosenRange();
+  const today = localDate(new Date());
+  const classes = classesIn(month);
+  // Same colours as long as the same courses are shown.
+  state.monthColours = new Map();
+  for (const course of state.courses) colourFor(course);
+
+  $('#month-title').textContent = monthName(month);
+  $('#month-prev').disabled = !start || month <= start.slice(0, 7);
+  $('#month-next').disabled = !end || month >= end.slice(0, 7);
+  const thisMonth = today.slice(0, 7);
+  const name = monthName(month).split(' ')[0];
+  $('#month-note').textContent = !start ? ''
+    : month === thisMonth ? `This is how ${name} will look in your calendar app. Faded days have already passed, but they're still added.`
+    : today < start && month === start.slice(0, 7) ? `Your classes start on ${longDate(start)}, so this shows ${name}, the month they start.`
+    : `This is how ${name} will look in your calendar app.`;
+
+  // Days off in the chosen terms: "No classes" with the reason.
+  const offDays = new Map();
+  for (const term of terms) for (const day of term.no_class_dates ?? []) offDays.set(day, offReason(term, day));
+
+  const first = new Date(`${month}-01T12:00:00Z`);
+  const lead = (first.getUTCDay() + 6) % 7;                      // Monday first
+  const length = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  const cells = [];
+  for (let i = 0; i < lead; i++) cells.push(el('div', { className: 'mcell blank', attrs: { 'aria-hidden': 'true' } }));
+  for (let n = 1; n <= length; n++) {
+    const iso = `${month}-${String(n).padStart(2, '0')}`;
+    const list = classes.get(iso) ?? [];
+    const off = offDays.has(iso);
+    const inTerm = start && iso >= start && iso <= end;
+    const label = `${longDate(iso)}: ${off ? 'no classes' : list.length ? plural(list.length, 'class', 'classes') : 'nothing'}`;
+    const cell = el('button', {
+      className: `mcell${iso < today ? ' past' : ''}${iso === today ? ' today' : ''}${off ? ' off' : ''}${inTerm ? '' : ' outside'}${iso === state.monthDay ? ' picked' : ''}`,
+      attrs: { type: 'button', 'data-iso': iso, 'aria-label': label, 'aria-pressed': String(iso === state.monthDay) },
+    }, [
+      el('span', { className: 'mnum', text: String(n) }),
+      ...(off ? [el('span', { className: 'moff', text: offDays.get(iso) ?? 'No classes' })] : []),
+      el('span', { className: 'mchips' }, list.slice(0, 5).map(({ course, meeting }) =>
+        paint(el('span', { className: 'mchip', attrs: { title: `${clock(meeting.start)} ${courseKey(course)} ${course.component}${meeting.room ? ` · ${meeting.room}` : ''}` } }, [
+          el('b', { text: courseKey(course) }),
+          el('span', { text: `${clock(meeting.start).replace(' ', '').toLowerCase()} · ${course.component}` }),
+        ]), course))
+        .concat(list.length > 5 ? [el('span', { className: 'mmore', text: `+${list.length - 5} more` })] : [])),
+      el('span', { className: 'mdots', attrs: { 'aria-hidden': 'true' } }, list.map(({ course }) => paint(el('i'), course))),
+    ]);
+    cells.push(cell);
+  }
+  while (cells.length % 7) cells.push(el('div', { className: 'mcell blank', attrs: { 'aria-hidden': 'true' } }));
+  $('#month').replaceChildren(...MONTH_DAYS.map(d => el('div', { className: 'mhead', text: d })), ...cells);
+  renderAgenda(classes, offDays);
+}
+
+// The classes on the picked day, listed under the month (the main view on phones).
+function renderAgenda(classes, offDays) {
+  const iso = state.monthDay;
+  if (!iso || !iso.startsWith(state.month)) { $('#month-agenda').replaceChildren(); return; }
+  const list = classes.get(iso) ?? [];
+  $('#month-agenda').replaceChildren(
+    el('h4', { className: 'day-name', text: longDate(iso) }),
+    list.length
+      ? el('ul', {}, list.map(({ course, meeting }) => paint(el('li', { className: 'day-item' }, [
+        el('span', { className: 'day-time', text: `${clock(meeting.start)} – ${clock(meeting.end)}` }),
+        el('span', { className: 'day-course', text: `${courseKey(course)} ${course.component}` }),
+        el('span', { className: 'day-room', text: meeting.room || 'No room listed' }),
+      ]), course)))
+      : el('p', { className: 'month-empty', text: offDays.has(iso) ? `No classes${offDays.get(iso) ? `: ${offDays.get(iso)}` : ''}.` : 'No classes this day.' }),
+  );
+}
+
+// The day the agenda opens on: today if it's in this month and has classes,
+// otherwise the next day with classes (or the first one in the month).
+function pickAgendaDay() {
+  const classes = classesIn(state.month);
+  const days = [...classes.keys()].sort();
+  const today = localDate(new Date());
+  state.monthDay = days.find(d => d >= today) ?? days[0] ?? null;
+}
+
+$('#month').addEventListener('click', event => {
+  const cell = event.target.closest('.mcell[data-iso]');
+  if (!cell) return;
+  state.monthDay = cell.dataset.iso;
+  renderMonth();
+  $('#month').querySelector(`[data-iso="${state.monthDay}"]`)?.focus();
+});
+for (const [id, step] of [['#month-prev', -1], ['#month-next', 1]]) {
+  $(id).addEventListener('click', () => {
+    state.month = shiftMonth(state.month, step);
+    pickAgendaDay();
+    renderMonth();
+  });
+}
+
+// Back to the starting month (after the term choice changes or a new file).
+function resetPreview() {
+  state.month = startingMonth();
+  pickAgendaDay();
+  // The week view only offers the chosen term(s).
+  const include = chosenTerms();
+  document.querySelectorAll('.term-tab').forEach(tab => { tab.hidden = include !== 'both' && tab.dataset.term !== include; });
+  if (include !== 'both') state.tab = include;
+}
+
+function renderPreview() {
+  const month = previewView() === 'month';
+  $('#month-part').hidden = !month;
+  $('#week-part').hidden = month;
+  $('#found-summary').textContent = month
+    ? 'This is what your calendar app will show, with the choices below. Switch to Week to compare a week with DraftMySchedule.'
+    : 'Compare this week with DraftMySchedule before you continue.';
+  if (month) renderMonth(); else renderWeek();
+}
+document.querySelectorAll('input[name="preview"]').forEach(r => r.addEventListener('change', renderPreview));
+
 // ["Wed, Sep 30 (National Day for Truth and Reconciliation)", "Oct 12–16 (Fall reading week)"]
 function daysOff(term) {
   const days = [...(term.no_class_dates ?? [])].sort();
@@ -655,6 +836,27 @@ function labCount(course) {
       .reduce((k, m) => k + meetingDays(course, m, term).filter(d => !d.off).length, 0), 0);
 }
 
+// Everything about one lab's days in the chosen term(s): the days it happens,
+// the days off that pushed later ones back, and whether they were picked by hand.
+function labInfo(course) {
+  const days = [];
+  const pushed = [];
+  let lost = 0;
+  for (const term of labTerms(course)) {
+    for (const m of course.meetings.filter(m => m.start && m.days.length)) {
+      const plan = labPlan(course, m, term);
+      days.push(...plan.days);
+      pushed.push(...plan.pushed);
+      lost += plan.lost;
+    }
+  }
+  return { days: [...new Set(days)].sort(), pushed: [...new Set(pushed)].sort(), lost, byHand: Array.isArray(course.repeat?.dates) };
+}
+
+// Short list of dates: "Sep 30, Oct 14 and Oct 15".
+const dateList = isos => isos.length < 2 ? isos.map(shortDate).join('')
+  : `${isos.slice(0, -1).map(shortDate).join(', ')} and ${shortDate(isos.at(-1))}`;
+
 function renderLabOptions() {
   const labs = labCourses();
   $('#parts-option').hidden = labs.length === 0;
@@ -667,37 +869,47 @@ function renderLabOptions() {
   $('#labs-list').replaceChildren(...labs.map(course => {
     const bounds = labBounds(course);
     const repeat = course.repeat ?? {};
+    const name = `${courseKey(course)} ${course.component}`;
+    const word = course.component === 'TUT' ? 'tutorial' : 'lab';
     const when = course.meetings.filter(m => m.start && m.days.length)
       .map(m => `${m.days.map(d => DAY_NAMES[d]).join(', ')} ${clock(m.start)}–${clock(m.end)}`).join(' · ');
-    const every = el('select', { attrs: { 'aria-label': `How often ${courseKey(course)} ${course.component} meets` } }, [
+    const every = el('select', { attrs: { 'aria-label': `How often ${name} meets` } }, [
       el('option', { text: 'Every week', attrs: { value: '1' } }),
       el('option', { text: 'Every other week', attrs: { value: '2' } }),
     ]);
     every.value = String(repeat.every ?? 1);
     const dateInput = (value, label) => el('input', { attrs: {
-      type: 'date', min: bounds.first, max: bounds.last, value: value ?? '', 'aria-label': `${label} ${courseKey(course)} ${course.component}`,
+      type: 'date', min: bounds.first, max: bounds.last, value: value ?? '', 'aria-label': `${label} ${name}`,
     } });
     const inside = d => d && d >= bounds.first && d <= bounds.last ? d : null;
     const first = dateInput(inside(repeat.first) ?? bounds.first, 'First');
     const last = dateInput(inside(repeat.last) ?? bounds.last, 'Last');
-    const count = el('p', { className: 'lab-count' });
-    const row = el('li', { className: 'lab-row' }, [
-      el('div', { className: 'lab-name' }, [
-        el('b', { text: `${courseKey(course)} ${course.component} ${course.section}` }),
-        el('span', { text: when }),
-      ]),
-      el('div', { className: 'lab-fields' }, [
-        el('label', {}, [el('span', { text: 'How often' }), every]),
-        el('label', {}, [el('span', { text: 'First one' }), first]),
-        el('label', {}, [el('span', { text: 'Last one' }), last]),
-      ]),
-      count,
+    const fields = el('div', { className: 'lab-fields' }, [
+      el('label', {}, [el('span', { text: 'How often' }), every]),
+      el('label', {}, [el('span', { text: 'First one' }), first]),
+      el('label', {}, [el('span', { text: 'Last one' }), last]),
     ]);
+    const count = el('p', { className: 'lab-count' });
+    const pick = el('button', { className: 'link-button', text: '', attrs: { type: 'button' } });
+    const backToPattern = el('button', { className: 'link-button', text: 'Use a pattern instead', attrs: { type: 'button' } });
+    const actions = el('p', { className: 'lab-actions' }, [pick, backToPattern]);
+    const row = el('li', { className: 'lab-row' }, [
+      el('div', { className: 'lab-name' }, [el('b', { text: `${name} ${course.section}` }), el('span', { text: when })]),
+      fields, count, actions,
+    ]);
+
     const showCount = () => {
-      const n = labCount(course);
+      const { days, pushed, lost, byHand } = labInfo(course);
+      fields.hidden = byHand;
+      backToPattern.hidden = !byHand;
+      pick.textContent = byHand ? 'Change the days' : `See every ${word} day, or pick them yourself`;
       count.classList.remove('warn');
-      count.textContent = `${plural(n, course.component === 'TUT' ? 'tutorial' : 'lab')} in your calendar`
-        + (every.value === '2' ? ', counting every other week from the first one' : '');
+      const range = days.length ? `, ${shortDate(days[0])} to ${shortDate(days.at(-1))}` : '';
+      count.textContent = days.length
+        ? `${byHand ? 'Picked by hand: ' : ''}${plural(days.length, word)} in your calendar${range}.`
+          + (!byHand && pushed.length ? ` No classes on ${dateList(pushed)}, so the ${word}s from then on move back a week`
+            + (lost ? ` (${lost === 1 ? `the last one would be after the term ends, so it's` : `the last ${lost} would be after the term ends, so they're`} left out).` : '.') : '')
+        : `No ${word}s picked, so this ${word} isn't added.`;
     };
     const update = () => {
       const f = first.value || bounds.first;
@@ -717,6 +929,14 @@ function renderLabOptions() {
       updateDownloadDetail();
     };
     for (const input of [every, first, last]) input.addEventListener('change', update);
+    pick.addEventListener('click', () => openLabDays(course));
+    backToPattern.addEventListener('click', () => {
+      const { dates, ...pattern } = course.repeat ?? {};
+      if ((pattern.every ?? 1) === 1 && !pattern.first && !pattern.last) delete course.repeat;
+      else course.repeat = pattern;
+      renderLabOptions();
+      updateDownloadDetail();
+    });
     showCount();
     return row;
   }));
@@ -726,9 +946,95 @@ document.querySelectorAll('input[name="parts"]').forEach(r => r.addEventListener
   updateDownloadDetail();
 }));
 
+/* ---------- every lab day, to look at or pick by hand (a dialog) ---------- */
+
+// Why there are no classes on a day: the label of the stretch it's part of
+// ("Fall reading week"), or null.
+function offReason(term, iso) {
+  const off = new Set(term.no_class_dates ?? []);
+  let day = iso;
+  for (;;) {
+    if (term.labels?.[day]) return term.labels[day];
+    const d = new Date(`${day}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    const before = d.toISOString().slice(0, 10);
+    if (!off.has(before)) return null;
+    day = before;
+  }
+}
+
+let labDaysCourse = null;
+function openLabDays(course) {
+  labDaysCourse = course;
+  const name = `${courseKey(course)} ${course.component}`;
+  const word = course.component === 'TUT' ? 'tutorial' : 'lab';
+  const meetings = course.meetings.filter(m => m.start && m.days.length);
+  const happens = new Set(labInfo(course).days);
+  $('#labdays-title').textContent = `${name} ${course.section}`;
+  $('#labdays-when').textContent = meetings
+    .map(m => `${m.days.map(d => DAY_NAMES[d]).join(', ')} ${clock(m.start)}–${clock(m.end)}${m.room ? `, ${m.room}` : ''}`).join(' · ');
+  $('#labdays-help').textContent = `Ticked days are the ${word}s that go into your calendar. Untick a day to leave it out, or tick one to add it. Check your course outline for the exact weeks.`;
+
+  // Every possible day in the chosen term(s), grouped by month.
+  const possible = new Map();
+  for (const term of labTerms(course)) {
+    for (const m of meetings) {
+      for (const d of possibleDays(m, term)) if (!possible.has(d.iso)) possible.set(d.iso, { ...d, term });
+    }
+  }
+  const months = new Map();
+  for (const d of [...possible.values()].sort((a, b) => a.iso.localeCompare(b.iso))) {
+    const key = d.iso.slice(0, 7);
+    if (!months.has(key)) months.set(key, []);
+    months.get(key).push(d);
+  }
+  $('#labdays-months').replaceChildren(...[...months].map(([key, days]) => el('section', { className: 'labdays-month' }, [
+    el('h3', { text: new Date(`${key}-15T12:00:00Z`).toLocaleDateString('en-CA', { month: 'long', year: 'numeric', timeZone: 'UTC' }) }),
+    el('div', { className: 'labdays-days' }, days.map(d => {
+      const reason = d.off ? offReason(d.term, d.iso) : null;
+      const box = el('input', { attrs: { type: 'checkbox', value: d.iso, ...(d.off ? { disabled: '' } : {}) } });
+      box.checked = happens.has(d.iso);
+      return el('label', { className: `labday${d.off ? ' off' : ''}`, attrs: { title: d.off ? `No classes${reason ? `: ${reason}` : ''}` : '' } }, [
+        box,
+        el('span', { className: 'labday-date', text: longDate(d.iso) }),
+        ...(d.off ? [el('span', { className: 'labday-why', text: reason ? `No classes: ${reason}` : 'No classes' })] : []),
+      ]);
+    })),
+  ])));
+  updateLabDaysCount();
+  $('#dialog-labdays').showModal();
+}
+function updateLabDaysCount() {
+  const n = $('#labdays-months').querySelectorAll('input:checked').length;
+  const word = labDaysCourse?.component === 'TUT' ? 'tutorial' : 'lab';
+  $('#labdays-count').textContent = `${plural(n, word)} ticked`;
+}
+$('#labdays-months').addEventListener('change', updateLabDaysCount);
+$('#labdays-cancel').addEventListener('click', () => $('#dialog-labdays').close());
+$('#labdays-save').addEventListener('click', () => {
+  const course = labDaysCourse;
+  const picked = [...$('#labdays-months').querySelectorAll('input:checked')].map(i => i.value);
+  const before = labInfo(course);
+  const changed = before.byHand || picked.length !== before.days.length || picked.some((d, i) => d !== before.days[i]);
+  if (changed) {
+    // Days in the term(s) not shown right now are kept as they are.
+    const shown = labTerms(course);
+    const outside = iso => !shown.some(t => iso >= t.starts_on && iso <= t.ends_on);
+    const allTerms = periodsFor(course.number, state.terms);
+    const current = Array.isArray(course.repeat?.dates) ? course.repeat.dates
+      : allTerms.flatMap(term => course.meetings.filter(m => m.start && m.days.length).flatMap(m => labDays(course, m, term)));
+    const dates = [...new Set([...current.filter(outside), ...picked])].sort();
+    course.repeat = { every: course.repeat?.every ?? 1, first: course.repeat?.first ?? null, last: course.repeat?.last ?? null, dates };
+  }
+  $('#dialog-labdays').close();
+  renderLabOptions();
+  updateDownloadDetail();
+});
+
 function updateDownloadDetail() {
   const total = summarize(chosen('include'), chosen('parts') ?? 'all').total;
   updateFinishButtons();
+  if (state.courses.length && state.terms) renderPreview();
   // Nothing to add (for example every course is online): say so instead of
   // offering an empty calendar file.
   $('#download').disabled = total === 0;
@@ -744,6 +1050,7 @@ function updateDownloadDetail() {
 document.querySelectorAll('input[name="include"]').forEach(r => r.addEventListener('change', () => {
   renderLabOptions();
   updateNameOption();
+  resetPreview();
   updateDownloadDetail();
 }));
 
