@@ -2,7 +2,7 @@
 // Rule used throughout: text from the schedule file is only ever shown with
 // textContent (never innerHTML), so it can't inject anything into the page.
 import { readSchedule, ScheduleReadError } from './parser.js';
-import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays } from '../shared/ics.js?v=20261021';
+import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays } from '../shared/ics.js?v=20261023';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
 import { mountReportForm } from './report-form.js?v=20261018';
@@ -345,6 +345,7 @@ function resetSchedulePage() {
   Object.assign(state, { courses: [], scheduleId: null, scheduleName: null, lastDownload: null, feed: null, saveResult: null });
   pickColour(null);
   document.querySelector('input[name="parts"][value="all"]').checked = true;
+  $('#cal-name').value = '';
   $('#check-part').hidden = true;
   $('#dropzone').classList.remove('loaded');
   $('.drop-title').replaceChildren('Drag the file here, or ', el('u', { text: 'click to choose it' }));
@@ -480,6 +481,7 @@ function renderCheck(notes) {
     allNotes.push(`${code} is a six-week course, so it's only added from ${longDate(period.starts_on)} to ${longDate(period.ends_on)}.`);
   }
   renderLabOptions();
+  updateNameOption();
   $('#notes-list').replaceChildren(...allNotes.map(n => el('li', { text: n })));
   $('#read-notes').hidden = allNotes.length === 0;
 }
@@ -741,6 +743,7 @@ function updateDownloadDetail() {
 }
 document.querySelectorAll('input[name="include"]').forEach(r => r.addEventListener('change', () => {
   renderLabOptions();
+  updateNameOption();
   updateDownloadDetail();
 }));
 
@@ -764,8 +767,11 @@ function downloadCalendar() {
   const include = chosen('include');
   const alarmMinutes = state.app === 'google' ? 0 : Number($('#alarm').value);
   const parts = chosen('parts') ?? 'all';
-  const { ics } = buildCalendar({ courses: state.courses, terms: state.terms, include, parts, alarmMinutes, calendarName: 'Western Classes' });
-  const filename = `Western Classes ${state.academicYear}.ics`;
+  const calendarName = customName() || termName();
+  const { ics } = buildCalendar({ courses: state.courses, terms: state.terms, include, parts, alarmMinutes, calendarName });
+  // File names can't have "/" (or a few other characters) in them.
+  const safe = calendarName.replace(/[\\/:*?"<>|]+/g, '-').trim();
+  const filename = `${safe}.ics`;
   const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
   const link = el('a', { attrs: { href: url, download: filename } });
   document.body.append(link);
@@ -920,7 +926,10 @@ function startRename(nameNode, schedule) {
     if (!keep || !newName || newName === schedule.name) return loadMySchedules();
     try {
       await api(`/schedules/${schedule.id}`, { method: 'PATCH', body: { name: newName } });
-      if (state.scheduleId === schedule.id) state.scheduleName = newName;
+      if (state.scheduleId === schedule.id) {
+        state.scheduleName = newName;
+        $('#cal-name').value = AUTO_NAME.test(newName) ? '' : newName;
+      }
     } catch (err) {
       $('#my-status').textContent = err.message;
     }
@@ -934,13 +943,36 @@ function startRename(nameNode, schedule) {
   });
 }
 
-// A new schedule gets a name that isn't taken yet: "Fall/Winter 2026-27 (2)".
+/* ---------- calendar name: automatic from the term, or the person's own ---------- */
+
+// "Fall 2026", "Winter 2027", or for both terms "Fall/Winter 2026-27".
+function termName(include = chosenTerms(), year = state.academicYear) {
+  const start = Number(year.slice(0, 4));
+  return include === 'fall' ? `Fall ${start}` : include === 'winter' ? `Winter ${start + 1}` : `Fall/Winter ${year}`;
+}
+// Names Slotted made itself (so opening one doesn't count as a name someone chose).
+const AUTO_NAME = /^(Fall \d{4}|Winter \d{4}|Fall\/Winter \d{4}-\d{2}|Western Classes)( \(\d+\))?$/;
+const customName = () => $('#cal-name').value.trim().slice(0, 60);
+
+// The name a saved schedule (and its calendar link) gets: the person's own, or
+// the automatic one, made unique among their other schedules: "Fall 2026 (2)".
 function newScheduleName() {
-  const base = `Fall/Winter ${state.academicYear}`;
+  if (customName()) return customName();
+  const base = termName();
+  const taken = state.myNames.filter(n => n !== state.scheduleName);
   let name = base;
-  for (let n = 2; state.myNames.includes(name); n++) name = `${base} (${n})`;
+  for (let n = 2; taken.includes(name); n++) name = `${base} (${n})`;
   return name;
 }
+
+function updateNameOption() {
+  const auto = termName();
+  $('#cal-name').placeholder = auto;
+  $('#cal-name-note').textContent = customName()
+    ? 'Leave it empty to go back to the automatic name.'
+    : `Leave it empty to use “${auto}”, or type your own.`;
+}
+$('#cal-name').addEventListener('input', updateNameOption);
 
 // A button that needs a second click to confirm (no pop-up windows).
 function confirmThen(button, confirmText, action) {
@@ -996,7 +1028,9 @@ async function openSavedSchedule(id) {
   pickColour(schedule.calendarColor);
   const parts = document.querySelector(`input[name="parts"][value="${schedule.includeParts ?? 'all'}"]`);
   if (parts) parts.checked = true;
+  $('#cal-name').value = AUTO_NAME.test(schedule.name) ? '' : schedule.name;
   renderLabOptions();
+  updateNameOption();
   if (schedule.calendarApp) {
     state.app = schedule.calendarApp;
     const radio = document.querySelector(`input[name="app"][value="${schedule.calendarApp}"]`);
@@ -1030,7 +1064,7 @@ function saveToAccount() {
 async function saveNow() {
   if (!state.user || !state.lastDownload) return;
   const body = {
-    name: state.scheduleName ?? newScheduleName(),
+    name: newScheduleName(),
     academicYear: state.academicYear,
     courses: state.courses,
     includeTerms: state.lastDownload.include,

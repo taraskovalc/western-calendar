@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="style.css?v=20261021">
-  <script type="module" src="app.js?v=20261021"></script>
+  <script type="module" src="app.js?v=20261023"></script>
 </head>
 <body>
   <div class="desk">
@@ -348,6 +348,11 @@
                   <option value="30">30 minutes before</option>
                 </select>
                 <p class="option-note" id="reminder-note" hidden>Google Calendar ignores reminders in calendar files and links, so you'll set them in Google instead. The last page shows how.</p>
+              </fieldset>
+              <fieldset class="option" id="name-option">
+                <legend>Calendar name</legend>
+                <input type="text" id="cal-name" maxlength="60" autocomplete="off" spellcheck="false" aria-describedby="cal-name-note">
+                <p class="option-note" id="cal-name-note"></p>
               </fieldset>
               <fieldset class="option option-wide" id="color-option">
                 <legend>Calendar colour</legend>
