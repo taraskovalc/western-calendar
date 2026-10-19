@@ -2,7 +2,7 @@
 // Rule used throughout: text from the schedule file is only ever shown with
 // textContent (never innerHTML), so it can't inject anything into the page.
 import { readSchedule, ScheduleReadError } from './parser.js';
-import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced } from '../shared/ics.js';
+import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays } from '../shared/ics.js?v=20261020';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
 import { mountReportForm } from './report-form.js?v=20261018';
@@ -344,6 +344,7 @@ function pickColour(colour) {
 function resetSchedulePage() {
   Object.assign(state, { courses: [], scheduleId: null, scheduleName: null, lastDownload: null, feed: null, saveResult: null });
   pickColour(null);
+  document.querySelector('input[name="parts"][value="all"]').checked = true;
   $('#check-part').hidden = true;
   $('#dropzone').classList.remove('loaded');
   $('.drop-title').replaceChildren('Drag the file here, or ', el('u', { text: 'click to choose it' }));
@@ -400,6 +401,10 @@ async function handleFile(file) {
     return;
   }
   const year = result.academicYear ?? LATEST_YEAR;
+  // Updating a saved schedule: keep each lab's every-other-week / date
+  // settings for the same lab section.
+  const kept = new Map(state.courses.filter(c => c.repeat).map(c => [labKey(c), c.repeat]));
+  for (const c of result.courses) if (kept.has(labKey(c))) c.repeat = kept.get(labKey(c));
   Object.assign(state, { courses: result.courses, academicYear: year, terms: TERM_DATES[year], lastDownload: null, saveResult: null });
   const notes = [...result.notes];
 
@@ -474,10 +479,7 @@ function renderCheck(notes) {
   for (const [code, period] of quarterCodes) {
     allNotes.push(`${code} is a six-week course, so it's only added from ${longDate(period.starts_on)} to ${longDate(period.ends_on)}.`);
   }
-  // Labs and tutorials are listed as weekly, even when they don't meet every week.
-  if (timed.some(c => ['LAB', 'TUT'].includes(c.component))) {
-    allNotes.push("Labs and tutorials are added every week, because DraftMySchedule doesn't say which weeks they skip. If yours doesn't meet every week, check your course outline and delete the weeks you don't have.");
-  }
+  renderLabOptions();
   $('#notes-list').replaceChildren(...allNotes.map(n => el('li', { text: n })));
   $('#read-notes').hidden = allNotes.length === 0;
 }
@@ -603,21 +605,20 @@ function daysOff(term) {
 }
 
 // Counts every individual class, the days off skipped, and the next class from today.
-function summarize(include) {
+function summarize(include, parts = 'all') {
   let total = 0;
   let skipped = 0;
   let next = null;
   const now = new Date();
   const nowKey = `${localDate(now)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   for (const course of state.courses) {
+    if (!partIncluded(course.component, parts)) continue;
     for (const term of periodsFor(course.number, state.terms, include)) {
       for (const meeting of course.meetings) {
         if (!meeting.start || !meeting.days.length) continue;
-        const weekdays = meeting.days.map(d => DAY_INDEX[d]);
-        for (let d = new Date(`${term.starts_on}T00:00:00Z`); d.toISOString().slice(0, 10) <= term.ends_on; d.setUTCDate(d.getUTCDate() + 1)) {
-          if (!weekdays.includes(d.getUTCDay())) continue;
-          const iso = d.toISOString().slice(0, 10);
-          if (term.no_class_dates.includes(iso)) { skipped++; continue; }
+        // The same days the calendar file uses (every other week, first/last dates).
+        for (const { iso, off } of meetingDays(course, meeting, term)) {
+          if (off) { skipped++; continue; }
           total++;
           const key = `${iso} ${meeting.start}`;
           if (key > nowKey && (!next || key < next.key)) next = { key, iso, course, meeting };
@@ -628,8 +629,90 @@ function summarize(include) {
   return { total, skipped, next };
 }
 
+/* ---------- labs and tutorials: every week or every other week, and when ---------- */
+
+const labKey = c => [c.subject, c.number, c.component, c.section].join(' ');
+const labCourses = () => state.courses.filter(c => isLabPart(c.component) && hasTime(c) && !whyNotPlaced(c.number));
+
+// The first and last day a lab would meet with no settings: the defaults.
+function labBounds(course) {
+  const plain = { ...course, repeat: undefined };
+  const days = periodsFor(course.number, state.terms).flatMap(term =>
+    course.meetings.filter(m => m.start && m.days.length).flatMap(m => meetingDays(plain, m, term)));
+  const sorted = days.map(d => d.iso).sort();
+  return { first: sorted[0], last: sorted.at(-1) };
+}
+function labCount(course) {
+  return periodsFor(course.number, state.terms).reduce((n, term) =>
+    n + course.meetings.filter(m => m.start && m.days.length)
+      .reduce((k, m) => k + meetingDays(course, m, term).filter(d => !d.off).length, 0), 0);
+}
+
+function renderLabOptions() {
+  const labs = labCourses();
+  $('#parts-option').hidden = labs.length === 0;
+  if (!labs.length) document.querySelector('input[name="parts"][value="all"]').checked = true;
+  $('#labs-option').hidden = labs.length === 0 || chosen('parts') === 'lectures';
+  $('#labs-list').replaceChildren(...labs.map(course => {
+    const bounds = labBounds(course);
+    const repeat = course.repeat ?? {};
+    const when = course.meetings.filter(m => m.start && m.days.length)
+      .map(m => `${m.days.map(d => DAY_NAMES[d]).join(', ')} ${clock(m.start)}–${clock(m.end)}`).join(' · ');
+    const every = el('select', { attrs: { 'aria-label': `How often ${courseKey(course)} ${course.component} meets` } }, [
+      el('option', { text: 'Every week', attrs: { value: '1' } }),
+      el('option', { text: 'Every other week', attrs: { value: '2' } }),
+    ]);
+    every.value = String(repeat.every ?? 1);
+    const dateInput = (value, label) => el('input', { attrs: {
+      type: 'date', min: bounds.first, max: bounds.last, value: value ?? '', 'aria-label': `${label} ${courseKey(course)} ${course.component}`,
+    } });
+    const first = dateInput(repeat.first ?? bounds.first, 'First');
+    const last = dateInput(repeat.last ?? bounds.last, 'Last');
+    const count = el('p', { className: 'lab-count' });
+    const row = el('li', { className: 'lab-row' }, [
+      el('div', { className: 'lab-name' }, [
+        el('b', { text: `${courseKey(course)} ${course.component} ${course.section}` }),
+        el('span', { text: when }),
+      ]),
+      el('div', { className: 'lab-fields' }, [
+        el('label', {}, [el('span', { text: 'How often' }), every]),
+        el('label', {}, [el('span', { text: 'First one' }), first]),
+        el('label', {}, [el('span', { text: 'Last one' }), last]),
+      ]),
+      count,
+    ]);
+    const showCount = () => {
+      const n = labCount(course);
+      count.classList.remove('warn');
+      count.textContent = `${plural(n, course.component === 'TUT' ? 'tutorial' : 'lab')} in your calendar`
+        + (every.value === '2' ? ', counting every other week from the first one' : '');
+    };
+    const update = () => {
+      const f = first.value || bounds.first;
+      const l = last.value || bounds.last;
+      if (f > l) {
+        count.textContent = 'The last one has to be on or after the first one.';
+        count.classList.add('warn');
+        return;
+      }
+      const next = { every: Number(every.value), first: f === bounds.first ? null : f, last: l === bounds.last ? null : l };
+      if (next.every === 1 && !next.first && !next.last) delete course.repeat;
+      else course.repeat = next;
+      showCount();
+      updateDownloadDetail();
+    };
+    for (const input of [every, first, last]) input.addEventListener('change', update);
+    showCount();
+    return row;
+  }));
+}
+document.querySelectorAll('input[name="parts"]').forEach(r => r.addEventListener('change', () => {
+  $('#labs-option').hidden = labCourses().length === 0 || chosen('parts') === 'lectures';
+  updateDownloadDetail();
+}));
+
 function updateDownloadDetail() {
-  const total = summarize(chosen('include')).total;
+  const total = summarize(chosen('include'), chosen('parts') ?? 'all').total;
   updateFinishButtons();
   // Nothing to add (for example every course is online): say so instead of
   // offering an empty calendar file.
@@ -637,6 +720,8 @@ function updateDownloadDetail() {
   $('#save-link').disabled = total === 0;
   $('#download-detail').textContent = total
     ? `${plural(total, 'class', 'classes')} will go into your calendar`
+    : chosen('parts') !== 'all' && summarize(chosen('include')).total
+      ? 'Nothing to add with this choice. Try "Everything" in What to add.'
     : chosen('include') === 'both'
       ? 'None of your classes have a set day and time, so there\'s nothing to add to a calendar.'
       : 'No classes with set times in this term. Try "Both" or the other term.';
@@ -662,7 +747,8 @@ function updateFinishButtons() {
 function downloadCalendar() {
   const include = chosen('include');
   const alarmMinutes = state.app === 'google' ? 0 : Number($('#alarm').value);
-  const { ics } = buildCalendar({ courses: state.courses, terms: state.terms, include, alarmMinutes, calendarName: 'Western Classes' });
+  const parts = chosen('parts') ?? 'all';
+  const { ics } = buildCalendar({ courses: state.courses, terms: state.terms, include, parts, alarmMinutes, calendarName: 'Western Classes' });
   const filename = `Western Classes ${state.academicYear}.ics`;
   const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
   const link = el('a', { attrs: { href: url, download: filename } });
@@ -670,7 +756,7 @@ function downloadCalendar() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  state.lastDownload = { mode: 'file', include, alarmMinutes, filename, calendarColor: pickedColour() };
+  state.lastDownload = { mode: 'file', include, parts, alarmMinutes, filename, calendarColor: pickedColour() };
 }
 $('#download').addEventListener('click', () => {
   downloadCalendar();
@@ -681,7 +767,7 @@ $('#save-link').addEventListener('click', () => {
   if (!state.user) return;
   const include = chosen('include');
   const alarmMinutes = state.app === 'google' ? 0 : Number($('#alarm').value);
-  state.lastDownload = { mode: 'link', include, alarmMinutes, calendarColor: pickedColour(), hadFeed: Boolean(state.scheduleId && state.feed) };
+  state.lastDownload = { mode: 'link', include, parts: chosen('parts') ?? 'all', alarmMinutes, calendarColor: pickedColour(), hadFeed: Boolean(state.scheduleId && state.feed) };
   state.saveResult = null;
   show('done');
   saveToAccount();
@@ -693,9 +779,9 @@ $('#download-again').addEventListener('click', downloadCalendar);
 const APP_NAMES = { apple: 'Apple Calendar', google: 'Google Calendar', outlook: 'Outlook', other: 'your calendar app' };
 
 function renderDone() {
-  const { mode, include, alarmMinutes, filename, hadFeed } = state.lastDownload;
+  const { mode, include, parts, alarmMinutes, filename, hadFeed } = state.lastDownload;
   const linkMode = mode === 'link';
-  const { total, skipped, next } = summarize(include);
+  const { total, skipped, next } = summarize(include, parts);
   $('#done-title').textContent = !linkMode ? 'Your calendar file is ready'
     : hadFeed ? 'Your schedule is updated' : 'Your calendar link is ready';
   $('#done-file').textContent = !linkMode
@@ -892,6 +978,8 @@ async function openSavedSchedule(id) {
   if (include) include.checked = true;
   if ([...$('#alarm').options].some(o => o.value === String(schedule.alarmMinutes))) $('#alarm').value = String(schedule.alarmMinutes);
   pickColour(schedule.calendarColor);
+  const parts = document.querySelector(`input[name="parts"][value="${schedule.includeParts ?? 'all'}"]`);
+  if (parts) parts.checked = true;
   if (schedule.calendarApp) {
     state.app = schedule.calendarApp;
     const radio = document.querySelector(`input[name="app"][value="${schedule.calendarApp}"]`);
@@ -929,6 +1017,7 @@ async function saveNow() {
     academicYear: state.academicYear,
     courses: state.courses,
     includeTerms: state.lastDownload.include,
+    includeParts: state.lastDownload.parts ?? 'all',
     alarmMinutes: state.lastDownload.alarmMinutes,
     calendarApp: state.app,
     calendarColor: state.lastDownload.calendarColor ?? null,

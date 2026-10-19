@@ -144,6 +144,64 @@ export function periodsFor(courseNumber, terms, include = 'both') {
   return out;
 }
 
+/* ---------- labs, tutorials and how often they meet ---------- */
+
+// Labs and tutorials can be left out, or added on their own, and can run every
+// other week or only between certain dates. Everything else is a "lecture".
+const LAB_PARTS = new Set(['LAB', 'TUT']);
+export const isLabPart = component => LAB_PARTS.has(String(component).toUpperCase());
+
+// parts: 'all' | 'lectures' | 'labs'
+export function partIncluded(component, parts = 'all') {
+  if (parts === 'lectures') return !isLabPart(component);
+  if (parts === 'labs') return isLabPart(component);
+  return true;
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const isoOf = date => date.toISOString().slice(0, 10);
+// Monday of the week a date is in (calendar apps count "every other week"
+// in Monday-to-Sunday weeks, so we do too).
+const mondayOf = date => addDays(date, -((date.getUTCDay() + 6) % 7));
+
+// When one meeting of a course actually happens within one term, after the
+// course's own settings: course.repeat = { every: 1 | 2, first: 'YYYY-MM-DD'
+// or null, last: 'YYYY-MM-DD' or null }. Returns null if it never happens.
+//   first  the first day it meets (also the week "every other week" counts from)
+//   until  the last possible day
+export function meetingWindow(course, meeting, term) {
+  const weekdays = (meeting.days ?? []).map(d => DAYS[d]).filter(d => d !== undefined);
+  if (!weekdays.length) return null;
+  const repeat = course.repeat ?? {};
+  let start = term.starts_on;
+  let end = term.ends_on;
+  if (ISO_DAY.test(repeat.first ?? '') && repeat.first > start) start = repeat.first;
+  if (ISO_DAY.test(repeat.last ?? '') && repeat.last < end) end = repeat.last;
+  let first = toDate(start);
+  while (!weekdays.includes(first.getUTCDay())) first = addDays(first, 1);
+  if (isoOf(first) > end) return null;
+  return { weekdays, first, until: toDate(end), every: repeat.every === 2 ? 2 : 1 };
+}
+
+// Every day the meeting lands on in one term, as [{ iso, off }]
+// (off = a holiday or reading-week day, so the class doesn't happen).
+// Matches exactly what the calendar file's repeat rule produces.
+export function meetingDays(course, meeting, term) {
+  const window = meetingWindow(course, meeting, term);
+  if (!window) return [];
+  const { weekdays, first, until, every } = window;
+  const firstWeek = mondayOf(first).getTime();
+  const off = new Set(term.no_class_dates ?? []);
+  const out = [];
+  for (let d = first; d <= until; d = addDays(d, 1)) {
+    if (!weekdays.includes(d.getUTCDay())) continue;
+    const weeks = Math.round((mondayOf(d).getTime() - firstWeek) / (7 * 86_400_000));
+    if (weeks % every !== 0) continue;
+    out.push({ iso: isoOf(d), off: off.has(isoOf(d)) });
+  }
+  return out;
+}
+
 /* ---------- the main function ---------- */
 
 /**
@@ -151,6 +209,7 @@ export function periodsFor(courseNumber, terms, include = 'both') {
  * @param {object[]} options.courses       classes from the schedule reader
  * @param {object[]} options.terms         term rows (fall and/or winter)
  * @param {'fall'|'winter'|'both'} [options.include]
+ * @param {'all'|'lectures'|'labs'} [options.parts]  leave out labs/tutorials, or add only them
  * @param {number}   [options.alarmMinutes] 0 = no reminder
  * @param {string}   [options.calendarName]
  * @param {Date}     [options.now]          only used for the DTSTAMP field
@@ -159,7 +218,7 @@ export function periodsFor(courseNumber, terms, include = 'both') {
  * @returns {{ ics: string, added: object[], skipped: object[] }}
  */
 export function buildCalendar({
-  courses, terms, include = 'both', alarmMinutes = 0,
+  courses, terms, include = 'both', parts = 'all', alarmMinutes = 0,
   calendarName = 'Western Classes', now = new Date(), refreshHours = null, calendarColor = null,
 }) {
   const stamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
@@ -179,6 +238,7 @@ export function buildCalendar({
   const seen = new Set();   // the same class listed twice is only added once
 
   for (const course of courses) {
+    if (!partIncluded(course.component, parts)) continue;  // left out on purpose, not "skipped"
     const code = `${course.subject} ${course.number}`;
     const periods = periodsFor(course.number, terms, include);
     const notPlaced = whyNotPlaced(course.number);
@@ -196,11 +256,15 @@ export function buildCalendar({
 
       for (const term of periods) {
         const season = term.season;
-        // First class = first matching weekday on or after the term's first day.
-        let first = toDate(term.starts_on);
-        while (!weekdays.includes(first.getUTCDay())) first = addDays(first, 1);
+        // First class = first matching weekday on or after the term's first day
+        // (or the course's own first date, if it starts later).
+        const window = meetingWindow(course, meeting, term);
+        if (!window) continue;
+        const { first } = window;
         // UNTIL is in UTC: 03:59:59Z the next day = after any class, in EST or EDT.
-        const until = ymd(addDays(toDate(term.ends_on), 1)) + 'T035959Z';
+        const until = ymd(addDays(window.until, 1)) + 'T035959Z';
+        // Every other week: weeks counted Monday to Sunday from the first one.
+        const interval = window.every === 2 ? ';INTERVAL=2;WKST=MO' : '';
 
         // Everything that makes this event different from the others goes into
         // its UID, so two events in one calendar can never share one.
@@ -220,7 +284,7 @@ export function buildCalendar({
           `SUMMARY:${escapeText(`${code} ${course.component}`)}`,
           `DTSTART;TZID=America/Toronto:${ymd(first)}T${hhmmss(meeting.start)}`,
           `DTEND;TZID=America/Toronto:${ymd(first)}T${hhmmss(meeting.end)}`,
-          `RRULE:FREQ=WEEKLY;BYDAY=${weekdays.map(d => ICAL_DAYS[d]).join(',')};UNTIL=${until}`,
+          `RRULE:FREQ=WEEKLY${interval};BYDAY=${weekdays.map(d => ICAL_DAYS[d]).join(',')};UNTIL=${until}`,
           `DESCRIPTION:${escapeText(details.join('\n'))}`,
         );
         if (meeting.room) lines.push(`LOCATION:${escapeText(meeting.room)}`);

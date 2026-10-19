@@ -2,7 +2,7 @@
 // Uses made-up classes so no real schedule is ever committed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced } from './ics.js';
+import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, meetingDays } from './ics.js';
 
 const terms = [
   { season: 'fall', starts_on: '2026-09-09', ends_on: '2026-12-09',
@@ -138,4 +138,27 @@ test('calendar colour: added only when it is a real #RRGGBB colour', () => {
   assert.match(withColour, /\r?\nX-APPLE-CALENDAR-COLOR:#C9562E\r?\n/);
   assert.doesNotMatch(buildCalendar({ courses: [fallClass], terms }).ics, /X-APPLE-CALENDAR-COLOR/);
   assert.doesNotMatch(buildCalendar({ courses: [fallClass], terms, calendarColor: 'red;X-EVIL:1' }).ics, /X-APPLE-CALENDAR-COLOR|X-EVIL/);
+});
+
+const labClass = { ...fallClass, component: 'LAB', section: '003', meetings: [{ days: ['W'], start: '10:30', end: '11:30', room: 'UCC-37' }] };
+
+test('parts: lectures only leaves labs out; labs only leaves lectures out', () => {
+  const both = buildCalendar({ courses: [fallClass, labClass], terms, include: 'fall' }).added.map(a => a.component);
+  assert.deepEqual([...new Set(both)].sort(), ['LAB', 'LEC']);
+  assert.ok(buildCalendar({ courses: [fallClass, labClass], terms, include: 'fall', parts: 'lectures' }).added.every(a => a.component === 'LEC'));
+  assert.ok(buildCalendar({ courses: [fallClass, labClass], terms, include: 'fall', parts: 'labs' }).added.every(a => a.component === 'LAB'));
+});
+
+test('every other week, with first and last dates', () => {
+  const lab = { ...labClass, repeat: { every: 2, first: '2026-09-16', last: '2026-11-25' } };
+  const ics = buildCalendar({ courses: [lab], terms, include: 'fall' }).ics;
+  assert.match(ics, /DTSTART;TZID=America\/Toronto:20260916T103000/);
+  assert.match(ics, /RRULE:FREQ=WEEKLY;INTERVAL=2;WKST=MO;BYDAY=WE;UNTIL=20261126T035959Z/);
+  const days = meetingDays(lab, lab.meetings[0], terms[0]).map(d => d.iso);
+  assert.deepEqual(days, ['2026-09-16', '2026-09-30', '2026-10-14', '2026-10-28', '2026-11-11', '2026-11-25']);
+});
+
+test('a first date after the term ends adds nothing for that term', () => {
+  const lab = { ...labClass, repeat: { every: 1, first: '2026-12-20', last: null } };
+  assert.equal(buildCalendar({ courses: [lab], terms, include: 'fall' }).added.length, 0);
 });

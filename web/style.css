@@ -756,3 +756,20 @@ body { overflow-x: clip; }
 .report-dialog .sent h2 { font-size: 22px; margin: 0 0 6px; }
 .report-dialog .sent p { color: var(--ink); margin: 0 0 14px; }
 .report-fine { font-size: 13px !important; margin-top: 18px; }
+
+/* ---------- labs and tutorials: how often, and first/last dates ---------- */
+.labs-intro { margin: 0 0 12px; }
+.labs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.lab-row { padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--paper); }
+.lab-name { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 10px; }
+.lab-name span { font-size: 14px; color: var(--muted); }
+.lab-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.lab-fields label { display: grid; gap: 4px; font-size: 13px; font-weight: 500; color: var(--muted); }
+.lab-fields select, .lab-fields input[type="date"] {
+  font: 15px var(--sans); color: var(--ink); background: var(--paper-2); border: 1.5px solid var(--line);
+  border-radius: 10px; padding: 8px 10px; width: 100%; min-width: 0;
+}
+.lab-fields select:focus, .lab-fields input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.lab-count { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.lab-count.warn { color: var(--accent-ink); font-weight: 600; }
+@media (max-width: 560px) { .lab-fields { grid-template-columns: 1fr 1fr; } .lab-fields label:first-child { grid-column: 1 / -1; } }

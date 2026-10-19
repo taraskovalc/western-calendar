@@ -45,7 +45,7 @@ feedsRouter.get('/:file', guessLimiter, async (req, res) => {
 
   const { rows } = await pool.query(
     `SELECT f.id AS feed_id, s.name, s.academic_year, s.courses,
-            s.include_terms, s.alarm_minutes, s.calendar_color, s.updated_at
+            s.include_terms, s.include_parts, s.alarm_minutes, s.calendar_color, s.updated_at
        FROM calendar_feeds f
        JOIN schedules s ON s.id = f.schedule_id
       WHERE f.token = $1`,
@@ -61,6 +61,7 @@ feedsRouter.get('/:file', guessLimiter, async (req, res) => {
     courses: feed.courses,
     terms,
     include: feed.include_terms,
+    parts: feed.include_parts,
     alarmMinutes: feed.alarm_minutes,
     calendarName: feed.name,
     calendarColor: feed.calendar_color,

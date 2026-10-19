@@ -19,6 +19,7 @@ const MAX_SCHEDULES_PER_USER = 10;
 /* ---------- what a valid schedule looks like ---------- */
 const text = max => z.string().trim().max(max);
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Time must look like 14:30');
+const day = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, 'Date must look like 2026-09-16');
 
 const meetingSchema = z.object({
   days: z.array(z.enum(['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'])).max(7),
@@ -39,6 +40,14 @@ const courseSchema = z.object({
   instructor: text(60).default(''),
   delivery: text(40).default(''),
   meetings: z.array(meetingSchema).min(1).max(10),
+  // Labs and tutorials: every week or every other week, and between which dates.
+  repeat: z.object({
+    every: z.union([z.literal(1), z.literal(2)]),
+    first: day.nullable(),
+    last: day.nullable(),
+  }).strict()
+    .refine(r => !r.first || !r.last || r.last >= r.first, { message: 'The last date must be on or after the first', path: ['last'] })
+    .optional(),
 }).strict();  // .strict() = any field we don't know about is an error, not silently kept
 
 const fields = {
@@ -46,6 +55,7 @@ const fields = {
   academicYear: z.string().regex(/^\d{4}-\d{2}$/, 'School year must look like 2026-27'),
   courses: z.array(courseSchema).min(1, 'Add at least one class').max(40, 'At most 40 classes'),
   includeTerms: z.enum(['fall', 'winter', 'both']),
+  includeParts: z.enum(['all', 'lectures', 'labs']),
   alarmMinutes: z.number().int().min(0).max(120),
   calendarApp: z.enum(['apple', 'google', 'outlook', 'other']).nullable(),
   // A colour for the calendar itself, like #C9562E. Apple Calendar may use it
@@ -57,6 +67,7 @@ const createSchema = z.object({
   ...fields,
   name: fields.name.default('My schedule'),
   includeTerms: fields.includeTerms.default('both'),
+  includeParts: fields.includeParts.default('all'),
   alarmMinutes: fields.alarmMinutes.default(0),
   calendarApp: fields.calendarApp.default(null),
   calendarColor: fields.calendarColor.default(null),
@@ -76,6 +87,7 @@ function toSchedule(row) {
     name: row.name,
     academicYear: row.academic_year,
     includeTerms: row.include_terms,
+    includeParts: row.include_parts ?? 'all',
     alarmMinutes: row.alarm_minutes,
     calendarApp: row.calendar_app,
     calendarColor: row.calendar_color ?? null,
@@ -109,7 +121,7 @@ schedulesRouter.get('/', async (req, res) => {
   const { rows } = await pool.query(
     // course_count: different courses (a course's lecture and lab count once).
     // has_feed: whether this schedule has a calendar link turned on.
-    `SELECT s.id, s.name, s.academic_year, s.include_terms, s.alarm_minutes, s.calendar_app, s.calendar_color,
+    `SELECT s.id, s.name, s.academic_year, s.include_terms, s.include_parts, s.alarm_minutes, s.calendar_app, s.calendar_color,
             s.created_at, s.updated_at,
             (SELECT count(DISTINCT (c->>'subject') || ' ' || (c->>'number'))
                FROM jsonb_array_elements(s.courses) AS c)::int AS course_count,
@@ -136,13 +148,13 @@ schedulesRouter.post('/', async (req, res) => {
   }
 
   const { rows } = await pool.query(
-    `INSERT INTO schedules (user_id, name, academic_year, courses, include_terms, alarm_minutes, calendar_app, calendar_color)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO schedules (user_id, name, academic_year, courses, include_terms, include_parts, alarm_minutes, calendar_app, calendar_color)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING *`,
     // JSON.stringify: pg would otherwise send a JavaScript array as a
     // PostgreSQL array, not as JSON, and the insert would fail.
     [req.userId, data.name, data.academicYear, JSON.stringify(data.courses),
-      data.includeTerms, data.alarmMinutes, data.calendarApp, data.calendarColor],
+      data.includeTerms, data.includeParts, data.alarmMinutes, data.calendarApp, data.calendarColor],
   );
   res.status(201).json({ schedule: toSchedule(rows[0]) });
 });
@@ -167,7 +179,7 @@ schedulesRouter.patch('/:id', async (req, res) => {
   // Column names come from this fixed list, never from the request, so it stays safe.
   const columns = {
     name: 'name', academicYear: 'academic_year', courses: 'courses',
-    includeTerms: 'include_terms', alarmMinutes: 'alarm_minutes', calendarApp: 'calendar_app',
+    includeTerms: 'include_terms', includeParts: 'include_parts', alarmMinutes: 'alarm_minutes', calendarApp: 'calendar_app',
     calendarColor: 'calendar_color',
   };
   const sets = [];
@@ -205,6 +217,7 @@ schedulesRouter.get('/:id/calendar.ics', async (req, res) => {
     courses: schedule.courses,
     terms,
     include: schedule.include_terms,
+    parts: schedule.include_parts,
     alarmMinutes: schedule.alarm_minutes,
     calendarName: schedule.name,
   });
