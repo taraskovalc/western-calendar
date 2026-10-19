@@ -766,13 +766,18 @@ body { overflow-x: clip; }
 .lab-name span { font-size: 14px; color: var(--muted); }
 .lab-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .lab-fields label { display: grid; gap: 4px; font-size: 13px; font-weight: 500; color: var(--muted); }
-.lab-fields select, .lab-fields input[type="date"] {
+.lab-fields select {
   font: 15px var(--sans); color: var(--ink); background: var(--paper-2); border: 1.5px solid var(--line);
   border-radius: 10px; padding: 8px 10px; width: 100%; min-width: 0;
 }
 .lab-fields select:focus, .lab-fields input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.lab-count { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
-.lab-count.warn { color: var(--accent-ink); font-weight: 600; }
+.lab-count { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+.lab-count.warn { display: block; font-size: 13px; color: var(--accent-ink); font-weight: 600; }
+.lab-stat { display: grid; gap: 1px; padding: 6px 12px; border-radius: 8px; background: var(--paper-2); border: 1px solid var(--line); }
+.lab-stat small { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.lab-stat b { font-size: 14px; font-weight: 600; color: var(--ink); }
+.lab-stat.skipped b { color: var(--accent-ink); }
+.lab-stat.hand { border-style: dashed; }
 @media (max-width: 560px) { .lab-fields { grid-template-columns: 1fr 1fr; } .lab-fields label:first-child { grid-column: 1 / -1; } }
 .lab-actions { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
 

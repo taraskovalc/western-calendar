@@ -201,8 +201,9 @@ export function possibleDays(meeting, term) {
 //   otherwise             a pattern: every week or every other week, from the
 //                         first day to the last day. A lab that lands on a
 //                         holiday or reading week is PUSHED BACK a week, and
-//                         the ones after it move back too, so no lab is lost
-//                         (as long as the term hasn't ended).
+//                         the ones after it move back too (every other week
+//                         keeps alternating from the moved one), but never
+//                         past the last day.
 export function labDays(course, meeting, term) {
   return labPlan(course, meeting, term).days;
 }
@@ -234,7 +235,8 @@ export function labPlan(course, meeting, term) {
     if (!planned.length) continue;
     let i = run.findIndex(d => d.iso === planned[0].iso);
     let placed = 0;
-    while (placed < planned.length && i < run.length) {
+    // Never past the last day the person chose (or the end of the term).
+    while (placed < planned.length && i < run.length && run[i].iso <= end) {
       if (run[i].off) { pushed.push(run[i].iso); i++; continue; }  // a day off: try the same day next week
       out.push(run[i].iso);
       placed++;

@@ -166,22 +166,22 @@ function expand(ics) {
 
 test('every other week, with first and last dates, pushed back past days off', () => {
   // Sep 30 and Oct 14 are days off, so from Sep 30 on every lab moves back a
-  // week: still six labs, the last one on Dec 2 instead of Nov 25.
+  // week and keeps alternating from there, up to the last day (Nov 25).
   const lab = { ...labClass, repeat: { every: 2, first: '2026-09-16', last: '2026-11-25' } };
   const ics = buildCalendar({ courses: [lab], terms, include: 'fall' }).ics;
   const days = meetingDays(lab, lab.meetings[0], terms[0]).map(d => d.iso);
-  assert.deepEqual(days, ['2026-09-16', '2026-10-07', '2026-10-21', '2026-11-04', '2026-11-18', '2026-12-02']);
+  assert.deepEqual(days, ['2026-09-16', '2026-10-07', '2026-10-21', '2026-11-04', '2026-11-18']);
   assert.match(ics, /DTSTART;TZID=America\/Toronto:20260916T103000/);
-  assert.match(ics, /RRULE:FREQ=WEEKLY;BYDAY=WE;UNTIL=20261203T035959Z/);
+  assert.match(ics, /RRULE:FREQ=WEEKLY;BYDAY=WE;UNTIL=20261119T035959Z/);
   assert.deepEqual(expand(ics), days);
 });
 
-test('weekly labs are pushed back too, but never past the end of the term', () => {
-  // Weekly, Sep 9 to Oct 28: eight weeks, two of them days off -> eight labs ending Nov 11.
+test('weekly labs never go past the last day or the end of the term', () => {
+  // Weekly, Sep 9 to Oct 28: eight weeks, two of them days off -> six labs.
   const lab = { ...labClass, repeat: { every: 1, first: null, last: '2026-10-28' } };
   const days = meetingDays(lab, lab.meetings[0], terms[0]).map(d => d.iso);
-  assert.equal(days.length, 8);
-  assert.equal(days.at(-1), '2026-11-11');
+  assert.equal(days.length, 6);
+  assert.equal(days.at(-1), '2026-10-28');
   assert.ok(!days.includes('2026-09-30') && !days.includes('2026-10-14'));
   // No settings: the whole term, nothing pushed past Dec 9.
   const plain = meetingDays(labClass, labClass.meetings[0], terms[0]).map(d => d.iso);

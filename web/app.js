@@ -2,7 +2,7 @@
 // Rule used throughout: text from the schedule file is only ever shown with
 // textContent (never innerHTML), so it can't inject anything into the page.
 import { readSchedule, ScheduleReadError } from './parser.js';
-import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays, labPlan, labDays, possibleDays } from '../shared/ics.js?v=20261024';
+import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays, labPlan, labDays, possibleDays } from '../shared/ics.js?v=20261025';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
 import { mountReportForm } from './report-form.js?v=20261018';
@@ -853,9 +853,6 @@ function labInfo(course) {
   return { days: [...new Set(days)].sort(), pushed: [...new Set(pushed)].sort(), lost, byHand: Array.isArray(course.repeat?.dates) };
 }
 
-// Short list of dates: "Sep 30, Oct 14 and Oct 15".
-const dateList = isos => isos.length < 2 ? isos.map(shortDate).join('')
-  : `${isos.slice(0, -1).map(shortDate).join(', ')} and ${shortDate(isos.at(-1))}`;
 
 function renderLabOptions() {
   const labs = labCourses();
@@ -878,18 +875,24 @@ function renderLabOptions() {
       el('option', { text: 'Every other week', attrs: { value: '2' } }),
     ]);
     every.value = String(repeat.every ?? 1);
-    const dateInput = (value, label) => el('input', { attrs: {
-      type: 'date', min: bounds.first, max: bounds.last, value: value ?? '', 'aria-label': `${label} ${name}`,
-    } });
-    const inside = d => d && d >= bounds.first && d <= bounds.last ? d : null;
-    const first = dateInput(inside(repeat.first) ?? bounds.first, 'First');
-    const last = dateInput(inside(repeat.last) ?? bounds.last, 'Last');
+    // Only the days this lab can actually meet (no other weekdays, no days off).
+    const meetDays = [...new Set(labTerms(course).flatMap(term => course.meetings.filter(m => m.start && m.days.length)
+      .flatMap(m => possibleDays(m, term)).filter(d => !d.off).map(d => d.iso)))].sort();
+    const inside = d => d && meetDays.includes(d) ? d : null;
+    const dayPicker = (value, label) => {
+      const select = el('select', { attrs: { 'aria-label': `${label} ${name}` } },
+        meetDays.map(iso => el('option', { text: longDate(iso), attrs: { value: iso } })));
+      select.value = value;
+      return select;
+    };
+    const first = dayPicker(inside(repeat.first) ?? bounds.first, 'First');
+    const last = dayPicker(inside(repeat.last) ?? bounds.last, 'Last');
     const fields = el('div', { className: 'lab-fields' }, [
       el('label', {}, [el('span', { text: 'How often' }), every]),
       el('label', {}, [el('span', { text: 'First one' }), first]),
       el('label', {}, [el('span', { text: 'Last one' }), last]),
     ]);
-    const count = el('p', { className: 'lab-count' });
+    const count = el('div', { className: 'lab-count' });
     const pick = el('button', { className: 'link-button', text: '', attrs: { type: 'button' } });
     const backToPattern = el('button', { className: 'link-button', text: 'Use a pattern instead', attrs: { type: 'button' } });
     const actions = el('p', { className: 'lab-actions' }, [pick, backToPattern]);
@@ -899,17 +902,19 @@ function renderLabOptions() {
     ]);
 
     const showCount = () => {
-      const { days, pushed, lost, byHand } = labInfo(course);
+      const { days, pushed, byHand } = labInfo(course);
       fields.hidden = byHand;
       backToPattern.hidden = !byHand;
       pick.textContent = byHand ? 'Change the days' : `See every ${word} day, or pick them yourself`;
       count.classList.remove('warn');
-      const range = days.length ? `, ${shortDate(days[0])} to ${shortDate(days.at(-1))}` : '';
-      count.textContent = days.length
-        ? `${byHand ? 'Picked by hand: ' : ''}${plural(days.length, word)} in your calendar${range}.`
-          + (!byHand && pushed.length ? ` No classes on ${dateList(pushed)}, so the ${word}s from then on move back a week`
-            + (lost ? ` (${lost === 1 ? `the last one would be after the term ends, so it's` : `the last ${lost} would be after the term ends, so they're`} left out).` : '.') : '')
-        : `No ${word}s picked, so this ${word} isn't added.`;
+      const stat = (label, value, extra = '') => el('span', { className: `lab-stat${extra}` }, [el('small', { text: label }), el('b', { text: value })]);
+      count.replaceChildren(...(days.length ? [
+        stat('Total', plural(days.length, word)),
+        stat('First', longDate(days[0])),
+        stat('Last', longDate(days.at(-1))),
+        ...(!byHand && pushed.length ? [stat('Skipped', pushed.map(shortDate).join(', '), ' skipped')] : []),
+        ...(byHand ? [stat('Days', 'Picked by hand', ' hand')] : []),
+      ] : [stat('Total', `No ${word}s`, ' skipped')]));
     };
     const update = () => {
       const f = first.value || bounds.first;
