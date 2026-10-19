@@ -132,3 +132,10 @@ test('every event in a calendar has its own UID, and exact duplicates are added 
   assert.equal(new Set(uids).size, uids.length);
   assert.equal(added.length, 2);
 });
+
+test('calendar colour: added only when it is a real #RRGGBB colour', () => {
+  const withColour = buildCalendar({ courses: [fallClass], terms, calendarColor: '#c9562e' }).ics;
+  assert.match(withColour, /\r?\nX-APPLE-CALENDAR-COLOR:#C9562E\r?\n/);
+  assert.doesNotMatch(buildCalendar({ courses: [fallClass], terms }).ics, /X-APPLE-CALENDAR-COLOR/);
+  assert.doesNotMatch(buildCalendar({ courses: [fallClass], terms, calendarColor: 'red;X-EVIL:1' }).ics, /X-APPLE-CALENDAR-COLOR|X-EVIL/);
+});

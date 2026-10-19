@@ -155,11 +155,12 @@ export function periodsFor(courseNumber, terms, include = 'both') {
  * @param {string}   [options.calendarName]
  * @param {Date}     [options.now]          only used for the DTSTAMP field
  * @param {number}   [options.refreshHours] for subscriptions: how often apps should re-check
+ * @param {string}   [options.calendarColor] '#RRGGBB'; a hint Apple Calendar may use for the calendar's colour
  * @returns {{ ics: string, added: object[], skipped: object[] }}
  */
 export function buildCalendar({
   courses, terms, include = 'both', alarmMinutes = 0,
-  calendarName = 'Western Classes', now = new Date(), refreshHours = null,
+  calendarName = 'Western Classes', now = new Date(), refreshHours = null, calendarColor = null,
 }) {
   const stamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
   const lines = [
@@ -169,6 +170,8 @@ export function buildCalendar({
     // Hints for subscribed calendars. Two spellings: the official one, and the
     // older one that Apple Calendar and Outlook actually read.
     ...(refreshHours ? [`REFRESH-INTERVAL;VALUE=DURATION:PT${refreshHours}H`, `X-PUBLISHED-TTL:PT${refreshHours}H`] : []),
+    // Apple's own (unofficial) line for a calendar's colour. Other apps ignore it.
+    ...(/^#[0-9A-Fa-f]{6}$/.test(calendarColor ?? '') ? [`X-APPLE-CALENDAR-COLOR:${calendarColor.toUpperCase()}`] : []),
     ...TIMEZONE,
   ];
   const added = [];

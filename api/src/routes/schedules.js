@@ -48,6 +48,9 @@ const fields = {
   includeTerms: z.enum(['fall', 'winter', 'both']),
   alarmMinutes: z.number().int().min(0).max(120),
   calendarApp: z.enum(['apple', 'google', 'outlook', 'other']).nullable(),
+  // A colour for the calendar itself, like #C9562E. Apple Calendar may use it
+  // when someone subscribes to the link; other apps choose their own.
+  calendarColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Colour must look like #C9562E').transform(c => c.toUpperCase()).nullable(),
 };
 // Creating: name, year and classes are required; settings have defaults.
 const createSchema = z.object({
@@ -56,6 +59,7 @@ const createSchema = z.object({
   includeTerms: fields.includeTerms.default('both'),
   alarmMinutes: fields.alarmMinutes.default(0),
   calendarApp: fields.calendarApp.default(null),
+  calendarColor: fields.calendarColor.default(null),
 }).strict();
 // Updating: every field is optional, but at least one must be sent.
 const updateSchema = z.object(fields).partial().strict()
@@ -74,6 +78,7 @@ function toSchedule(row) {
     includeTerms: row.include_terms,
     alarmMinutes: row.alarm_minutes,
     calendarApp: row.calendar_app,
+    calendarColor: row.calendar_color ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(row.course_count !== undefined && { courseCount: row.course_count }),
@@ -104,7 +109,7 @@ schedulesRouter.get('/', async (req, res) => {
   const { rows } = await pool.query(
     // course_count: different courses (a course's lecture and lab count once).
     // has_feed: whether this schedule has a calendar link turned on.
-    `SELECT s.id, s.name, s.academic_year, s.include_terms, s.alarm_minutes, s.calendar_app,
+    `SELECT s.id, s.name, s.academic_year, s.include_terms, s.alarm_minutes, s.calendar_app, s.calendar_color,
             s.created_at, s.updated_at,
             (SELECT count(DISTINCT (c->>'subject') || ' ' || (c->>'number'))
                FROM jsonb_array_elements(s.courses) AS c)::int AS course_count,
@@ -131,13 +136,13 @@ schedulesRouter.post('/', async (req, res) => {
   }
 
   const { rows } = await pool.query(
-    `INSERT INTO schedules (user_id, name, academic_year, courses, include_terms, alarm_minutes, calendar_app)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO schedules (user_id, name, academic_year, courses, include_terms, alarm_minutes, calendar_app, calendar_color)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
     // JSON.stringify: pg would otherwise send a JavaScript array as a
     // PostgreSQL array, not as JSON, and the insert would fail.
     [req.userId, data.name, data.academicYear, JSON.stringify(data.courses),
-      data.includeTerms, data.alarmMinutes, data.calendarApp],
+      data.includeTerms, data.alarmMinutes, data.calendarApp, data.calendarColor],
   );
   res.status(201).json({ schedule: toSchedule(rows[0]) });
 });
@@ -163,6 +168,7 @@ schedulesRouter.patch('/:id', async (req, res) => {
   const columns = {
     name: 'name', academicYear: 'academic_year', courses: 'courses',
     includeTerms: 'include_terms', alarmMinutes: 'alarm_minutes', calendarApp: 'calendar_app',
+    calendarColor: 'calendar_color',
   };
   const sets = [];
   const values = [];

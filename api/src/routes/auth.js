@@ -19,7 +19,7 @@ const registerSchema = z.object({
   // Long beats complicated: a 10+ character minimum, no forced symbols.
   password: z.string().min(10, 'Password must be at least 10 characters').max(200),
   displayName: z.string().trim().max(60).optional().transform(v => v || undefined),  // blank = no name
-  theme: z.enum(['light', 'dark']).optional(),
+  theme: z.enum(['auto', 'light', 'dark']).optional(),
 });
 const loginSchema = z.object({
   email,
@@ -80,7 +80,7 @@ authRouter.post('/register', registerLimiter, async (req, res) => {
       `INSERT INTO users (email, password_hash, display_name, theme)
        VALUES ($1, $2, $3, $4)
        RETURNING id, email, display_name, theme, true AS has_password`,
-      [data.email, passwordHash, data.displayName ?? null, data.theme ?? 'light'],
+      [data.email, passwordHash, data.displayName ?? null, data.theme ?? 'auto'],
     );
     user = rows[0];
   } catch (err) {
@@ -164,7 +164,7 @@ authRouter.delete('/account', requireAuth, async (req, res) => {
 });
 
 // PATCH /auth/me   { theme }   ->  save settings for the signed-in user
-const settingsSchema = z.object({ theme: z.enum(['light', 'dark']) }).strict();
+const settingsSchema = z.object({ theme: z.enum(['auto', 'light', 'dark']) }).strict();
 
 authRouter.patch('/me', requireAuth, async (req, res) => {
   const { data, errors } = validate(settingsSchema, req.body);

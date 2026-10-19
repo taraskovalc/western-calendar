@@ -45,7 +45,7 @@ feedsRouter.get('/:file', guessLimiter, async (req, res) => {
 
   const { rows } = await pool.query(
     `SELECT f.id AS feed_id, s.name, s.academic_year, s.courses,
-            s.include_terms, s.alarm_minutes, s.updated_at
+            s.include_terms, s.alarm_minutes, s.calendar_color, s.updated_at
        FROM calendar_feeds f
        JOIN schedules s ON s.id = f.schedule_id
       WHERE f.token = $1`,
@@ -63,6 +63,7 @@ feedsRouter.get('/:file', guessLimiter, async (req, res) => {
     include: feed.include_terms,
     alarmMinutes: feed.alarm_minutes,
     calendarName: feed.name,
+    calendarColor: feed.calendar_color,
     refreshHours: REFRESH_HOURS,
     // Use the schedule's last-change time (not "right now") so the file is
     // identical until something actually changes. Then the ETag stays the same

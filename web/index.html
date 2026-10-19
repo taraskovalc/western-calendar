@@ -5,17 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Slotted · Western timetable to calendar</title>
   <meta name="description" content="Turns a saved Western DraftMySchedule page into a calendar file for Apple Calendar, Google Calendar, Outlook and other calendar apps.">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
   <script>
-    // Signed-in users get their saved theme straight away (no flash of the light theme).
-    try { if (localStorage.getItem('slotted-theme') === 'dark') { document.documentElement.dataset.theme = 'dark'; document.documentElement.style.colorScheme = 'dark'; } } catch {}
+    // Pick light or dark before anything is drawn (no flash of the wrong theme):
+    // the saved choice if there is one, otherwise whatever the device uses.
+    (function () {
+      var choice = 'auto';
+      try { choice = localStorage.getItem('slotted-theme') || 'auto'; } catch (e) {}
+      var dark = choice === 'dark' || (choice !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+    })();
   </script>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261018b">
-  <script type="module" src="app.js?v=20261018"></script>
+  <link rel="stylesheet" href="style.css?v=20261019">
+  <script type="module" src="app.js?v=20261019"></script>
 </head>
 <body>
   <div class="desk">
@@ -32,11 +39,17 @@
       </a>
       <div class="topbar-right">
         <p class="account-chip" id="account-chip" hidden></p>
-        <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" title="Switch to dark mode">
-          <span class="tt-track" aria-hidden="true"><span class="tt-knob"></span></span>
-          <span class="tt-text">Light</span>
-          <span class="visually-hidden">Dark mode</span>
-        </button>
+        <div class="theme-switch" id="theme-switch" role="radiogroup" aria-label="Light or dark mode">
+          <button type="button" role="radio" aria-checked="true" data-theme-choice="auto" title="Match my device">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg><span>Auto</span>
+          </button>
+          <button type="button" role="radio" aria-checked="false" data-theme-choice="light" title="Always light">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8 6 18M18 6l1.8-1.8"/></svg><span>Light</span>
+          </button>
+          <button type="button" role="radio" aria-checked="false" data-theme-choice="dark" title="Always dark">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><span>Dark</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -328,6 +341,22 @@
                 </select>
                 <p class="option-note" id="reminder-note" hidden>Google Calendar ignores reminders in calendar files and links, so you'll set them in Google instead. The last page shows how.</p>
               </fieldset>
+              <fieldset class="option option-wide" id="color-option" hidden>
+                <legend>Calendar colour <span class="optional">(for your calendar link)</span></legend>
+                <div class="swatches">
+                  <label class="swatch swatch-auto"><input type="radio" name="calcolor" value="" checked><span>App chooses</span></label>
+                  <label class="swatch" style="--c:#C9562E"><input type="radio" name="calcolor" value="#C9562E"><span class="visually-hidden">Terracotta</span></label>
+                  <label class="swatch" style="--c:#D93B3B"><input type="radio" name="calcolor" value="#D93B3B"><span class="visually-hidden">Red</span></label>
+                  <label class="swatch" style="--c:#F08C1A"><input type="radio" name="calcolor" value="#F08C1A"><span class="visually-hidden">Orange</span></label>
+                  <label class="swatch" style="--c:#E3B008"><input type="radio" name="calcolor" value="#E3B008"><span class="visually-hidden">Yellow</span></label>
+                  <label class="swatch" style="--c:#3F8A55"><input type="radio" name="calcolor" value="#3F8A55"><span class="visually-hidden">Green</span></label>
+                  <label class="swatch" style="--c:#1F9E9A"><input type="radio" name="calcolor" value="#1F9E9A"><span class="visually-hidden">Teal</span></label>
+                  <label class="swatch" style="--c:#3478F6"><input type="radio" name="calcolor" value="#3478F6"><span class="visually-hidden">Blue</span></label>
+                  <label class="swatch" style="--c:#8B5CF6"><input type="radio" name="calcolor" value="#8B5CF6"><span class="visually-hidden">Purple</span></label>
+                  <label class="swatch" style="--c:#E0569B"><input type="radio" name="calcolor" value="#E0569B"><span class="visually-hidden">Pink</span></label>
+                </div>
+                <p class="option-note" id="color-note">Apple Calendar can use this colour when you add the link. Google and Outlook pick their own, but you can change it there in a few clicks; the last page shows how.</p>
+              </fieldset>
             </div>
 
             <div class="download-box">
@@ -392,20 +421,23 @@
                 <div class="feed-steps" id="feed-steps-apple" hidden>
                   <a class="button-ink" id="feed-apple-open" href="#">Add to Apple Calendar</a>
                   <p>On a Mac or iPhone, this opens Calendar and asks to subscribe. Or in Calendar on a Mac, choose <b>File → New Calendar Subscription</b> and paste the link.</p>
+                  <p><b>Colour:</b> on a Mac, the subscribe window has a <b>Color</b> menu. To change it later on an iPhone, tap <b>Calendars</b>, tap <b>ⓘ</b> next to the calendar, and pick a colour.</p>
                 </div>
                 <ol class="feed-steps" id="feed-steps-google" hidden>
                   <li>On a computer, go to <b>calendar.google.com</b>.</li>
                   <li>Next to <b>Other calendars</b> on the left, click <b>+</b>, then <b>From URL</b>.</li>
                   <li>Paste the link and click <b>Add calendar</b>. Google can take several hours, sometimes up to a day, to show changes you make later.</li>
                   <li><b>Reminders (optional):</b> open the new calendar's settings in Google and add an <b>Event notification</b>, for example 10 minutes before.</li>
+                  <li><b>Colour (optional):</b> point at the calendar under <b>Other calendars</b>, click <b>⋮</b>, and pick a colour.</li>
                 </ol>
                 <ol class="feed-steps" id="feed-steps-outlook" hidden>
                   <li>On a computer, in <b>Outlook on the web</b>, open Calendar and choose <b>Add calendar</b>. (The Outlook phone app can't add links, but shows the calendar afterwards.)</li>
-                  <li>Choose <b>Subscribe from web</b>, paste the link, give it a name, and click <b>Import</b>.</li>
+                  <li>Choose <b>Subscribe from web</b>, paste the link, give it a name, pick a <b>colour</b>, and click <b>Import</b>.</li>
                 </ol>
                 <ol class="feed-steps" id="feed-steps-other" hidden>
                   <li>In your calendar app, look for <b>Subscribe</b>, <b>Add calendar from URL</b> or <b>Internet calendar</b>.</li>
                   <li>Paste the link. The app keeps it updated on its own.</li>
+                  <li>To change the calendar's colour, look in that calendar's settings.</li>
                 </ol>
 
                 <div class="feed-manage">

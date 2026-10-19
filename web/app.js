@@ -113,33 +113,56 @@ $('#open-notebook').addEventListener('click', () => {
   setTimeout(() => { book.classList.remove('opening'); show('welcome'); }, 650);
 });
 
-/* ================= theme (light / dark) ================= */
-// Everyone starts in light mode. Signed-in users keep whatever they last chose:
-// it's saved to their account, and cached in this browser only while signed in.
+/* ================= theme (auto / light / dark) ================= */
+// "Auto" (the default) follows the device's own light/dark setting, live.
+// A choice is remembered in this browser; signed-in users also keep it in
+// their account, so it follows them to other devices.
 const THEME_KEY = 'slotted-theme';
-const currentTheme = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+const THEMES = ['auto', 'light', 'dark'];
+const systemDark = matchMedia('(prefers-color-scheme: dark)');
+function cachedTheme() {
+  try { return localStorage.getItem(THEME_KEY); } catch { return null; }  // storage blocked
+}
+let themeChoice = THEMES.includes(cachedTheme()) ? cachedTheme() : 'auto';
+const currentTheme = () => themeChoice;
 
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.style.colorScheme = theme;
-  const button = $('#theme-toggle');
-  button.setAttribute('aria-pressed', String(theme === 'dark'));
-  button.querySelector('.tt-text').textContent = theme === 'dark' ? 'Dark' : 'Light';
-  button.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+function applyTheme(choice) {
+  themeChoice = THEMES.includes(choice) ? choice : 'auto';
+  const dark = themeChoice === 'dark' || (themeChoice === 'auto' && systemDark.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+  document.querySelectorAll('[data-theme-choice]').forEach(button => {
+    button.setAttribute('aria-checked', String(button.dataset.themeChoice === themeChoice));
+    button.tabIndex = button.dataset.themeChoice === themeChoice ? 0 : -1;
+  });
 }
-function cacheTheme(theme) {
-  try { if (theme) localStorage.setItem(THEME_KEY, theme); else localStorage.removeItem(THEME_KEY); } catch { /* storage blocked */ }
+function cacheTheme(choice) {
+  try { if (choice) localStorage.setItem(THEME_KEY, choice); else localStorage.removeItem(THEME_KEY); } catch { /* storage blocked */ }
 }
-$('#theme-toggle').addEventListener('click', () => {
-  const theme = currentTheme() === 'dark' ? 'light' : 'dark';
-  applyTheme(theme);
+function chooseTheme(choice) {
+  applyTheme(choice);
+  cacheTheme(themeChoice);
   if (state.user) {
-    state.user.theme = theme;
-    cacheTheme(theme);
-    api('/auth/me', { method: 'PATCH', body: { theme } }).catch(() => {});
+    state.user.theme = themeChoice;
+    api('/auth/me', { method: 'PATCH', body: { theme: themeChoice } }).catch(() => {});
   }
+}
+const themeButtons = [...document.querySelectorAll('[data-theme-choice]')];
+themeButtons.forEach((button, i) => {
+  button.addEventListener('click', () => chooseTheme(button.dataset.themeChoice));
+  // Arrow keys move between the three choices, like any radio group.
+  button.addEventListener('keydown', event => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const next = themeButtons[(i + step + themeButtons.length) % themeButtons.length];
+    chooseTheme(next.dataset.themeChoice);
+    next.focus();
+  });
 });
-applyTheme(currentTheme());
+// In Auto, switch the moment the device does (for example at sunset).
+systemDark.addEventListener('change', () => { if (themeChoice === 'auto') applyTheme('auto'); });
+applyTheme(themeChoice);
 
 /* ================= 1. welcome & accounts ================= */
 
@@ -172,6 +195,7 @@ function signedOut() {
   Object.assign(state, { user: null, scheduleId: null, scheduleName: null, saveResult: null, feed: null, myNames: [] });
   resetSchedulePage();  // the next person on this computer starts with an empty schedule
   cacheTheme(null);
+  applyTheme('auto');
   renderAccountChip();
   updateFinishButtons();
   $('#tab-signin')?.click(); // next visit to the welcome page starts on "Sign in"
@@ -242,8 +266,8 @@ function signedIn(user) {
   state.started = true;
   // A file downloaded before signing in wasn't saved; download again to save it.
   Object.assign(state, { lastDownload: null, saveResult: null });
-  applyTheme(user.theme ?? 'light');
-  cacheTheme(user.theme ?? 'light');
+  applyTheme(user.theme ?? 'auto');
+  cacheTheme(currentTheme());
   welcomeMessage('');
   renderAccountChip();
   updateFinishButtons();
@@ -295,8 +319,16 @@ function updateReminderOption() {
 })();
 
 // Back to an empty schedule page (for "Start a new schedule").
+// Ticks the matching calendar-colour swatch ("App chooses" if none).
+function pickColour(colour) {
+  const box = document.querySelector(`input[name="calcolor"][value="${colour ?? ''}"]`)
+    ?? document.querySelector('input[name="calcolor"][value=""]');
+  box.checked = true;
+}
+
 function resetSchedulePage() {
   Object.assign(state, { courses: [], scheduleId: null, scheduleName: null, lastDownload: null, feed: null, saveResult: null });
+  pickColour(null);
   $('#check-part').hidden = true;
   $('#dropzone').classList.remove('loaded');
   $('.drop-title').replaceChildren('Drag the file here, or ', el('u', { text: 'click to choose it' }));
@@ -603,6 +635,7 @@ function updateFinishButtons() {
   const updating = signedIn && state.scheduleId && state.feed;
   $('#save-link').hidden = !signedIn;
   $('#link-explain').hidden = !signedIn;
+  $('#color-option').hidden = !signedIn;  // the colour goes with the calendar link
   $('#save-link-text').textContent = updating ? 'Update my schedule' : 'Save and get my calendar link';
   $('#link-explain').textContent = updating
     ? 'Your calendar link stays the same, so your calendar picks up the changes by itself.'
@@ -622,7 +655,7 @@ function downloadCalendar() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  state.lastDownload = { mode: 'file', include, alarmMinutes, filename };
+  state.lastDownload = { mode: 'file', include, alarmMinutes, filename, calendarColor: chosen('calcolor') || null };
 }
 $('#download').addEventListener('click', () => {
   downloadCalendar();
@@ -633,7 +666,7 @@ $('#save-link').addEventListener('click', () => {
   if (!state.user) return;
   const include = chosen('include');
   const alarmMinutes = state.app === 'google' ? 0 : Number($('#alarm').value);
-  state.lastDownload = { mode: 'link', include, alarmMinutes, hadFeed: Boolean(state.scheduleId && state.feed) };
+  state.lastDownload = { mode: 'link', include, alarmMinutes, calendarColor: chosen('calcolor') || null, hadFeed: Boolean(state.scheduleId && state.feed) };
   state.saveResult = null;
   show('done');
   saveToAccount();
@@ -843,6 +876,7 @@ async function openSavedSchedule(id) {
   const include = document.querySelector(`input[name="include"][value="${schedule.includeTerms}"]`);
   if (include) include.checked = true;
   if ([...$('#alarm').options].some(o => o.value === String(schedule.alarmMinutes))) $('#alarm').value = String(schedule.alarmMinutes);
+  pickColour(schedule.calendarColor);
   if (schedule.calendarApp) {
     state.app = schedule.calendarApp;
     const radio = document.querySelector(`input[name="app"][value="${schedule.calendarApp}"]`);
@@ -882,6 +916,7 @@ async function saveNow() {
     includeTerms: state.lastDownload.include,
     alarmMinutes: state.lastDownload.alarmMinutes,
     calendarApp: state.app,
+    calendarColor: state.lastDownload.calendarColor ?? null,
   };
   state.saveResult = { pending: true };
   renderAccountDone();
@@ -1115,8 +1150,7 @@ api('/auth/me').then(({ user }) => {
     if (returnedFromSignIn) show('welcome');
   } else {
     state.user = null;
-    cacheTheme(null);
-    applyTheme('light');
+    applyTheme(currentTheme());  // guests keep whatever they chose in this browser
     renderAccountChip();
   }
   renderWelcome();
