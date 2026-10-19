@@ -2,7 +2,7 @@
 // Rule used throughout: text from the schedule file is only ever shown with
 // textContent (never innerHTML), so it can't inject anything into the page.
 import { readSchedule, ScheduleReadError } from './parser.js';
-import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays } from '../shared/ics.js?v=20261020';
+import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays } from '../shared/ics.js?v=20261021';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
 import { mountReportForm } from './report-form.js?v=20261018';
@@ -632,18 +632,23 @@ function summarize(include, parts = 'all') {
 /* ---------- labs and tutorials: every week or every other week, and when ---------- */
 
 const labKey = c => [c.subject, c.number, c.component, c.section].join(' ');
-const labCourses = () => state.courses.filter(c => isLabPart(c.component) && hasTime(c) && !whyNotPlaced(c.number));
+// Which term(s) the person picked in "Which term". Labs, their dates and their
+// counts only cover those terms.
+const chosenTerms = () => chosen('include') ?? 'both';
+const labTerms = course => periodsFor(course.number, state.terms, chosenTerms());
+const labCourses = () => state.courses.filter(c =>
+  isLabPart(c.component) && hasTime(c) && !whyNotPlaced(c.number) && labTerms(c).length > 0);
 
 // The first and last day a lab would meet with no settings: the defaults.
 function labBounds(course) {
   const plain = { ...course, repeat: undefined };
-  const days = periodsFor(course.number, state.terms).flatMap(term =>
+  const days = labTerms(course).flatMap(term =>
     course.meetings.filter(m => m.start && m.days.length).flatMap(m => meetingDays(plain, m, term)));
   const sorted = days.map(d => d.iso).sort();
   return { first: sorted[0], last: sorted.at(-1) };
 }
 function labCount(course) {
-  return periodsFor(course.number, state.terms).reduce((n, term) =>
+  return labTerms(course).reduce((n, term) =>
     n + course.meetings.filter(m => m.start && m.days.length)
       .reduce((k, m) => k + meetingDays(course, m, term).filter(d => !d.off).length, 0), 0);
 }
@@ -653,6 +658,10 @@ function renderLabOptions() {
   $('#parts-option').hidden = labs.length === 0;
   if (!labs.length) document.querySelector('input[name="parts"][value="all"]').checked = true;
   $('#labs-option').hidden = labs.length === 0 || chosen('parts') === 'lectures';
+  const include = chosenTerms();
+  $('#labs-term').textContent = include === 'fall' ? 'Showing your Fall term labs and tutorials.'
+    : include === 'winter' ? 'Showing your Winter term labs and tutorials.'
+    : 'Showing your labs and tutorials for both terms.';
   $('#labs-list').replaceChildren(...labs.map(course => {
     const bounds = labBounds(course);
     const repeat = course.repeat ?? {};
@@ -666,8 +675,9 @@ function renderLabOptions() {
     const dateInput = (value, label) => el('input', { attrs: {
       type: 'date', min: bounds.first, max: bounds.last, value: value ?? '', 'aria-label': `${label} ${courseKey(course)} ${course.component}`,
     } });
-    const first = dateInput(repeat.first ?? bounds.first, 'First');
-    const last = dateInput(repeat.last ?? bounds.last, 'Last');
+    const inside = d => d && d >= bounds.first && d <= bounds.last ? d : null;
+    const first = dateInput(inside(repeat.first) ?? bounds.first, 'First');
+    const last = dateInput(inside(repeat.last) ?? bounds.last, 'Last');
     const count = el('p', { className: 'lab-count' });
     const row = el('li', { className: 'lab-row' }, [
       el('div', { className: 'lab-name' }, [
@@ -695,7 +705,10 @@ function renderLabOptions() {
         count.classList.add('warn');
         return;
       }
-      const next = { every: Number(every.value), first: f === bounds.first ? null : f, last: l === bounds.last ? null : l };
+      // A date left at the default stays "default", except a saved date from the
+      // other term (hidden while only this term is picked), which is kept.
+      const keep = (value, bound, old) => value !== bound ? value : old && !inside(old) ? old : null;
+      const next = { every: Number(every.value), first: keep(f, bounds.first, course.repeat?.first), last: keep(l, bounds.last, course.repeat?.last) };
       if (next.every === 1 && !next.first && !next.last) delete course.repeat;
       else course.repeat = next;
       showCount();
@@ -726,7 +739,10 @@ function updateDownloadDetail() {
       ? 'None of your classes have a set day and time, so there\'s nothing to add to a calendar.'
       : 'No classes with set times in this term. Try "Both" or the other term.';
 }
-document.querySelectorAll('input[name="include"]').forEach(r => r.addEventListener('change', updateDownloadDetail));
+document.querySelectorAll('input[name="include"]').forEach(r => r.addEventListener('change', () => {
+  renderLabOptions();
+  updateDownloadDetail();
+}));
 
 // Signed in: the main choice is a calendar link (saved, no file); a file is the
 // second option. Guests just get the file.
@@ -980,6 +996,7 @@ async function openSavedSchedule(id) {
   pickColour(schedule.calendarColor);
   const parts = document.querySelector(`input[name="parts"][value="${schedule.includeParts ?? 'all'}"]`);
   if (parts) parts.checked = true;
+  renderLabOptions();
   if (schedule.calendarApp) {
     state.app = schedule.calendarApp;
     const radio = document.querySelector(`input[name="app"][value="${schedule.calendarApp}"]`);

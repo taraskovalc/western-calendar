@@ -758,7 +758,8 @@ body { overflow-x: clip; }
 .report-fine { font-size: 13px !important; margin-top: 18px; }
 
 /* ---------- labs and tutorials: how often, and first/last dates ---------- */
-.labs-intro { margin: 0 0 12px; }
+.labs-intro { margin: 0 0 6px; }
+.labs-term { margin: 0 0 12px; color: var(--ink); font-weight: 500; }
 .labs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .lab-row { padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--paper); }
 .lab-name { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 10px; }
