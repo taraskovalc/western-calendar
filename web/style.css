@@ -481,7 +481,12 @@ body { background: var(--wood); background-color: var(--desk); }
 .theme-switch button:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
 .theme-switch svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* calendar colour swatches */
+/* calendar colour: swatches (Apple + link) or short how-to steps */
+.color-howto { margin-top: 10px; font-size: 14px; color: var(--muted); }
+.color-howto p { margin: 0 0 6px; }
+.color-howto b { color: var(--ink); }
+.color-howto ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+#swatches + .color-note { margin-top: 10px; }
 .option-wide { grid-column: 1 / -1; }
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .swatch { position: relative; display: inline-flex; cursor: pointer; }

@@ -21,8 +21,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261019">
-  <script type="module" src="app.js?v=20261019"></script>
+  <link rel="stylesheet" href="style.css?v=20261019b">
+  <script type="module" src="app.js?v=20261019b"></script>
 </head>
 <body>
   <div class="desk">
@@ -341,9 +341,9 @@
                 </select>
                 <p class="option-note" id="reminder-note" hidden>Google Calendar ignores reminders in calendar files and links, so you'll set them in Google instead. The last page shows how.</p>
               </fieldset>
-              <fieldset class="option option-wide" id="color-option" hidden>
-                <legend>Calendar colour <span class="optional">(for your calendar link)</span></legend>
-                <div class="swatches">
+              <fieldset class="option option-wide" id="color-option">
+                <legend>Calendar colour</legend>
+                <div class="swatches" id="swatches" hidden>
                   <label class="swatch swatch-auto"><input type="radio" name="calcolor" value="" checked><span>App chooses</span></label>
                   <label class="swatch" style="--c:#C9562E"><input type="radio" name="calcolor" value="#C9562E"><span class="visually-hidden">Terracotta</span></label>
                   <label class="swatch" style="--c:#D93B3B"><input type="radio" name="calcolor" value="#D93B3B"><span class="visually-hidden">Red</span></label>
@@ -355,7 +355,26 @@
                   <label class="swatch" style="--c:#8B5CF6"><input type="radio" name="calcolor" value="#8B5CF6"><span class="visually-hidden">Purple</span></label>
                   <label class="swatch" style="--c:#E0569B"><input type="radio" name="calcolor" value="#E0569B"><span class="visually-hidden">Pink</span></label>
                 </div>
-                <p class="option-note" id="color-note">Apple Calendar can use this colour when you add the link. Google and Outlook pick their own, but you can change it there in a few clicks; the last page shows how.</p>
+                <p class="option-note color-note" id="color-note-apple-link" hidden>This colour only works with the <b>calendar link</b>: Apple Calendar can use it when you add the link. Downloading a file instead? Pick the colour in Calendar after adding it (see below).</p>
+                <p class="option-note color-note" id="color-note-apple-file" hidden>Choosing a colour here needs the <b>calendar link</b>, which comes with a free account. With a downloaded file, you pick the colour in Calendar after adding it (see below).</p>
+                <div class="color-howto" id="color-howto-apple" hidden>
+                  <p><b>Changing the colour in Apple Calendar</b></p>
+                  <ul>
+                    <li><b>Mac:</b> in the list of calendars on the left, right-click your classes calendar and pick a colour.</li>
+                    <li><b>iPhone:</b> tap <b>Calendars</b> at the bottom, tap <b>ⓘ</b> next to your classes calendar, and pick a colour.</li>
+                  </ul>
+                </div>
+                <div class="color-howto" id="color-howto-google" hidden>
+                  <p>Google Calendar chooses the colour itself, but you can change it in a few clicks once your classes are added:</p>
+                  <ul><li>On <b>calendar.google.com</b>, point at your classes calendar on the left, click <b>⋮</b>, and pick a colour.</li></ul>
+                </div>
+                <div class="color-howto" id="color-howto-outlook" hidden>
+                  <p>Outlook chooses the colour itself, but you can change it in a few clicks once your classes are added:</p>
+                  <ul><li>In Outlook's calendar, right-click your classes calendar on the left (or click <b>⋯</b> next to it), choose <b>Color</b>, and pick one.</li></ul>
+                </div>
+                <div class="color-howto" id="color-howto-other" hidden>
+                  <p>Your calendar app chooses the colour itself. Once your classes are added, look for the colour option in that calendar's settings, usually by right-clicking it or opening its info.</p>
+                </div>
               </fieldset>
             </div>
 
@@ -421,7 +440,7 @@
                 <div class="feed-steps" id="feed-steps-apple" hidden>
                   <a class="button-ink" id="feed-apple-open" href="#">Add to Apple Calendar</a>
                   <p>On a Mac or iPhone, this opens Calendar and asks to subscribe. Or in Calendar on a Mac, choose <b>File → New Calendar Subscription</b> and paste the link.</p>
-                  <p><b>Colour:</b> on a Mac, the subscribe window has a <b>Color</b> menu. To change it later on an iPhone, tap <b>Calendars</b>, tap <b>ⓘ</b> next to the calendar, and pick a colour.</p>
+                  <p><b>Colour:</b> on a Mac, the subscribe window has a <b>Color</b> menu. On an iPhone, tap <b>Calendars</b>, then <b>ⓘ</b> next to the calendar, and pick a colour.</p>
                 </div>
                 <ol class="feed-steps" id="feed-steps-google" hidden>
                   <li>On a computer, go to <b>calendar.google.com</b>.</li>

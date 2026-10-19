@@ -294,7 +294,22 @@ if (chosen('app')) {
   $('#app-next').disabled = false;
 }
 
+// Only Apple Calendar can take a colour from Slotted, and only through the
+// calendar link (which needs an account). Everyone else gets short steps for
+// choosing the colour in their own app.
+function updateColourOption() {
+  const apple = state.app === 'apple';
+  const link = apple && Boolean(state.user);
+  $('#swatches').hidden = !link;
+  $('#color-note-apple-link').hidden = !link;
+  $('#color-note-apple-file').hidden = !(apple && !state.user);
+  for (const name of ['apple', 'google', 'outlook', 'other']) $(`#color-howto-${name}`).hidden = name !== state.app;
+}
+// The colour Slotted should send: only for Apple, and only with an account.
+const pickedColour = () => (state.app === 'apple' && state.user ? chosen('calcolor') || null : null);
+
 function updateReminderOption() {
+  updateColourOption();
   // Google ignores reminders in files and links, so don't offer a choice that does nothing.
   $('#reminder-note').hidden = state.app !== 'google';
   $('#alarm').hidden = state.app === 'google';
@@ -635,7 +650,7 @@ function updateFinishButtons() {
   const updating = signedIn && state.scheduleId && state.feed;
   $('#save-link').hidden = !signedIn;
   $('#link-explain').hidden = !signedIn;
-  $('#color-option').hidden = !signedIn;  // the colour goes with the calendar link
+  updateColourOption();
   $('#save-link-text').textContent = updating ? 'Update my schedule' : 'Save and get my calendar link';
   $('#link-explain').textContent = updating
     ? 'Your calendar link stays the same, so your calendar picks up the changes by itself.'
@@ -655,7 +670,7 @@ function downloadCalendar() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  state.lastDownload = { mode: 'file', include, alarmMinutes, filename, calendarColor: chosen('calcolor') || null };
+  state.lastDownload = { mode: 'file', include, alarmMinutes, filename, calendarColor: pickedColour() };
 }
 $('#download').addEventListener('click', () => {
   downloadCalendar();
@@ -666,7 +681,7 @@ $('#save-link').addEventListener('click', () => {
   if (!state.user) return;
   const include = chosen('include');
   const alarmMinutes = state.app === 'google' ? 0 : Number($('#alarm').value);
-  state.lastDownload = { mode: 'link', include, alarmMinutes, calendarColor: chosen('calcolor') || null, hadFeed: Boolean(state.scheduleId && state.feed) };
+  state.lastDownload = { mode: 'link', include, alarmMinutes, calendarColor: pickedColour(), hadFeed: Boolean(state.scheduleId && state.feed) };
   state.saveResult = null;
   show('done');
   saveToAccount();
