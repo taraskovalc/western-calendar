@@ -2,7 +2,7 @@
 
 # Slotted
 
-**Your Western University timetable, in your calendar, in about five minutes.**
+**Your Western University timetable, in your calendar, in around five minutes.**
 
 [**Open Slotted →**](https://slotted.taraskoval.ca) &nbsp;·&nbsp; [Privacy](https://slotted.taraskoval.ca/privacy.html) &nbsp;·&nbsp; [Report a problem](https://slotted.taraskoval.ca/report.html)
 
