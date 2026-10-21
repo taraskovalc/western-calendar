@@ -204,7 +204,22 @@ function loadFromExtension() {
 // tracking across sites. Paste the site token from Cloudflare (Analytics &
 // Logs -> Web Analytics -> slotted.taraskoval.ca) to turn it on. Empty = off.
 const CF_ANALYTICS_TOKEN = '4137a26d33dc4aa88bb33ecbd943af16';
-if (CF_ANALYTICS_TOKEN && location.hostname === 'slotted.taraskoval.ca') {
+// Owner opt-out: visit ?nostats=1 once and this browser stops counting its
+// own visits (?nostats=0 turns it back on). Saved only in this browser.
+function statsOptedOut() {
+  const url = new URL(location.href);
+  const choice = url.searchParams.get('nostats');
+  try {
+    if (choice === '1') localStorage.setItem('slotted-nostats', '1');
+    if (choice === '0') localStorage.removeItem('slotted-nostats');
+  } catch {}
+  if (choice !== null) {
+    url.searchParams.delete('nostats');
+    history.replaceState(history.state, '', url);
+  }
+  try { return localStorage.getItem('slotted-nostats') === '1'; } catch { return false; }
+}
+if (CF_ANALYTICS_TOKEN && location.hostname === 'slotted.taraskoval.ca' && !statsOptedOut()) {
   const beacon = document.createElement('script');
   beacon.defer = true;
   beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';
