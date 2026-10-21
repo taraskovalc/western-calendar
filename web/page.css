@@ -12,7 +12,21 @@ h1 { font-size: 2.1rem; margin: 0 0 4px; }
 h2 { font-size: 1.25rem; margin: 32px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 .updated { color: var(--muted); margin: 0 0 24px; font-size: .9rem; }
 a { color: var(--accent); }
-ul { padding-left: 1.2em; }
+ul, ol { padding-left: 1.2em; }
+h3 { font-size: 1.02rem; margin: 22px 0 6px; }
+.summary { margin: 0 0 28px; padding: 18px 22px; border-radius: 12px; background: var(--field); border-left: 4px solid var(--done); }
+.summary h2 { margin: 0 0 8px; padding: 0; border: 0; font-size: 1.1rem; }
+.summary ul { margin: 0; }
+.toc { margin: 0 0 8px; padding: 16px 22px; border: 1px solid var(--line); border-radius: 12px; }
+.toc p { margin: 0 0 6px; font-weight: 600; font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.toc ol { margin: 0; columns: 2; column-gap: 28px; font-size: .95rem; }
+.toc li { margin-bottom: 4px; break-inside: avoid; }
+h2[id], h3[id] { scroll-margin-top: 16px; }
+.table-wrap { overflow-x: auto; margin: 10px 0 14px; }
+table { width: 100%; border-collapse: collapse; font-size: .93rem; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; background: var(--field); }
+@media (max-width: 640px) { .toc ol { columns: 1; } }
 li { margin-bottom: 6px; }
 .brand-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
 .brand { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); text-decoration: none; font: 700 22px/1 Fraunces, Georgia, serif; }

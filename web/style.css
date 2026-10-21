@@ -900,3 +900,9 @@ body { overflow-x: clip; }
 }
 .extension-tip svg { flex: none; width: 18px; height: 18px; margin-top: 1px; fill: var(--highlight); stroke: var(--accent-ink); stroke-width: 1.5; stroke-linejoin: round; }
 .extension-tip b, .extension-tip a { color: var(--ink); }
+
+/* privacy dialog: the short version, with a link to the full policy */
+.privacy-points { margin: 4px 0 18px; padding-left: 20px; display: grid; gap: 10px; }
+.privacy-more { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 0; padding-top: 14px; border-top: 1px solid var(--line); }
+.privacy-more .button-plain { text-decoration: none; padding: 10px 16px; font-size: 15px; }
+.privacy-more span { font-size: 14px; color: var(--muted); }

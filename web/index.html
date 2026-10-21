@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261030">
+  <link rel="stylesheet" href="style.css?v=20261031">
   <script type="module" src="app.js?v=20261030"></script>
 </head>
 <body>
@@ -615,26 +615,18 @@
   <!-- =================== Dialogs =================== -->
   <dialog class="paper-dialog" id="dialog-privacy" aria-labelledby="privacy-title">
     <form method="dialog" class="dialog-close-form"><button class="dialog-close" aria-label="Close">×</button></form>
-    <h2 id="privacy-title">What Slotted stores</h2>
-    <h3>Without an account</h3>
-    <p>Nothing. Your schedule file is read by this page in your browser, and the calendar file is made on your device. Neither is sent to a server.</p>
-    <h3>With an account</h3>
-    <ul>
-      <li>Your <b>email</b>, your <b>name</b> if you gave one, and your <b>password</b> stored only as a scrambled hash that can't be turned back into the password.</li>
-      <li>Your <b>saved schedules</b>: each class's course code and title, section, class number, instructor, delivery type, days, times and rooms, plus your settings (term, reminder, calendar app, light or dark mode).</li>
-      <li>Your private <b>calendar link</b>, if you made one, and when your calendar app last checked it.</li>
-      <li>If you use Google to sign in: an ID number from Google so it can recognise you. Slotted never sees your Google password.</li>
-      <li>A <b>sign-in cookie</b> that keeps you signed in for 30 days. It's only used for signing in.</li>
+    <h2 id="privacy-title">Privacy at a glance</h2>
+    <ul class="privacy-points">
+      <li><b>No account, no data.</b> Your schedule file is read in your browser and your calendar file is made on your device. Neither is sent to a server.</li>
+      <li><b>With an account,</b> Slotted keeps only your email, your name if you give one, a securely hashed password, your saved schedules and settings, and your private calendar link.</li>
+      <li><b>No ads, no tracking, no analytics.</b> Your information is never sold, shared for marketing, or used to train AI.</li>
+      <li><b>Stored in Canada.</b> On a server in London, Ontario, reached only through an encrypted Cloudflare connection, and backed up daily.</li>
+      <li><b>You're in control.</b> Open <b>Account</b> and choose <b>Delete my account</b> to remove everything at once.</li>
     </ul>
-    <h3>What Slotted doesn't do</h3>
-    <p>No ads, no tracking, no analytics, and your information is never sold or shared. The page loads its fonts from Google Fonts.</p>
-    <h3>Where it's kept</h3>
-    <p>On a server run by Taras Koval in London, Ontario, reached through Cloudflare. It's backed up once a day, and backups are kept for 14 days.</p>
-    <h3>Problem reports</h3>
-    <p>A report you send with “Report a problem” is emailed to Taras with whatever you add to it. It isn't stored on the server.</p>
-    <h3>Deleting it</h3>
-    <p>Sign in, open <b>Account</b> at the top of the page, and choose <b>Delete my account</b>. Your account, schedules and calendar links are removed straight away (and from backups within 14 days). Questions: <a href="mailto:slotted@taraskoval.ca">slotted@taraskoval.ca</a>.</p>
-    <p><a href="privacy.html" target="_blank" rel="noopener">Read the full privacy policy</a> (opens in a new tab)</p>
+    <p class="privacy-more">
+      <a class="button-plain" href="privacy.html" target="_blank" rel="noopener">Read the full privacy policy ↗</a>
+      <span>Opens in a new tab. Questions: <a href="mailto:slotted@taraskoval.ca">slotted@taraskoval.ca</a></span>
+    </p>
   </dialog>
 
   <dialog class="paper-dialog report-dialog" id="dialog-report" aria-labelledby="report-title">
