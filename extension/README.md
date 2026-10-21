@@ -11,11 +11,11 @@ Slotted works the same without it.
 1. Go to `chrome://extensions` and turn on **Developer mode** (top right).
 2. Click **Load unpacked** and choose this `extension` folder.
 3. Open DraftMySchedule, go to **My Current Schedule**, and click **Send to Slotted**
-   (or the Slotted icon in the toolbar).
+   (or the Slotted icon in the toolbar, which opens My Current Schedule from anywhere).
 
 ## What it can see and do
 
-- It only runs on `draftmyschedule.uwo.ca` and on Slotted itself.
+- It only runs on DraftMySchedule's **My Current Schedule** page and on Slotted itself.
 - When you click the button, it copies that one page and hands it to the Slotted tab it
   opens. The page stays in your browser: it's held for a moment in the extension's
   short-term storage, deleted as soon as Slotted takes it, and never sent to a server.

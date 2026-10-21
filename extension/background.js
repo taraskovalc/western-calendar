@@ -43,13 +43,15 @@ async function forgetOld() {
   if (old.length) await chrome.storage.session.remove(old);
 }
 
-// Clicking the toolbar icon: on the schedule page, send it. Anywhere else,
-// open DraftMySchedule.
+// Clicking the toolbar icon: on My Current Schedule, send it. Anywhere else
+// (another DraftMySchedule page or another website), open My Current Schedule.
+// DraftMySchedule asks the student to sign in first if they aren't.
+const CURRENT_SCHEDULE = 'https://draftmyschedule.uwo.ca/secure/current_timetable.cfm';
 chrome.action.onClicked.addListener(async tab => {
   try {
     await chrome.tabs.sendMessage(tab.id, { type: 'icon-clicked' });
   } catch {
-    // Not a DraftMySchedule tab (this extension isn't running there).
-    chrome.tabs.create({ url: 'https://draftmyschedule.uwo.ca/', index: tab.index + 1 });
+    // Not the My Current Schedule page (the extension only runs there).
+    chrome.tabs.create({ url: CURRENT_SCHEDULE, index: tab.index + 1 });
   }
 });

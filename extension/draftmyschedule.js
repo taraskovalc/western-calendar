@@ -1,7 +1,8 @@
 // Copyright (c) 2026 Taras Koval. All rights reserved. See LICENSE.
 //
-// Runs on DraftMySchedule. On the page that lists your classes (the one
-// Slotted's guide tells you to save), it adds one button: "Send to Slotted".
+// Runs only on DraftMySchedule's My Current Schedule page (the one Slotted's
+// guide tells you to save). Once the class list is on it, it adds one button:
+// "Send to Slotted".
 // Clicking it opens Slotted with this page already read in. Nothing to save.
 //
 // Thanks to eq's ClassMySchedule (public domain) for showing that an
@@ -96,7 +97,7 @@
     const tip = document.createElement('div');
     const root = tip.attachShadow({ mode: 'open' });
     root.innerHTML = `<style>${STYLE}</style><div class="card" role="status">${ICON}
-      <div class="text"><b>Open your class list first</b><small>Go to <b>My Current Schedule</b>, then click the Slotted icon again.</small></div></div>`;
+      <div class="text"><b>No class list on this page yet</b><small>Wait for <b>My Current Schedule</b> to finish loading, then click the Slotted icon again.</small></div></div>`;
     document.documentElement.append(tip);
     setTimeout(() => tip.remove(), 6000);
   }
