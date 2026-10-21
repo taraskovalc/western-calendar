@@ -21,8 +21,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261029">
-  <script type="module" src="app.js?v=20261029"></script>
+  <link rel="stylesheet" href="style.css?v=20261030">
+  <script type="module" src="app.js?v=20261030"></script>
 </head>
 <body>
   <div class="desk">
@@ -268,17 +268,22 @@
               <label class="task-head"><input type="checkbox"><span class="check-box" aria-hidden="true"></span>
                 <span class="task-title">Save the page as a file</span></label>
               <div class="task-detail">
-                <p>Stay on My Current Schedule; there's no need to scroll or click anything else. Saving keeps the whole page, including the class list Slotted reads.</p>
-                <p class="save-main" id="save-steps">Press <kbd>Ctrl</kbd> + <kbd>S</kbd>, set the format to <b>Webpage, HTML Only</b>, then click Save.</p>
+                <p>Stay on My Current Schedule. You don't need any of its buttons, just your keyboard.</p>
+                <ol class="save-steps">
+                  <li>Press <span id="save-keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></span> on your keyboard. A save window opens.</li>
+                  <li>Find <b>Format</b> (or <b>Save as type</b>) and choose <b id="save-format">Webpage, HTML Only</b>.</li>
+                  <li>Click <b>Save</b>.</li>
+                </ol>
+                <p class="save-warning"><b>Don't</b> use DraftMySchedule's <b>Printer Friendly</b> or PDF buttons. Slotted needs the page itself, not a PDF.</p>
                 <details class="other-browsers">
-                  <summary>Steps for other browsers</summary>
+                  <summary>Using a different browser?</summary>
                   <ul>
-                    <li><b>Chrome or Edge:</b> <kbd>Ctrl</kbd> + <kbd>S</kbd> (<kbd>⌘</kbd> + <kbd>S</kbd> on a Mac), set the format to <b>Webpage, HTML Only</b>, then Save.</li>
-                    <li><b>Safari:</b> choose <b>File → Save As…</b>, set Format to <b>Page Source</b>, then Save.</li>
-                    <li><b>Firefox:</b> <kbd>Ctrl</kbd> + <kbd>S</kbd> (<kbd>⌘</kbd> + <kbd>S</kbd> on a Mac), choose <b>Web Page, HTML only</b>, then Save.</li>
+                    <li><b>Chrome, Edge or Brave:</b> <kbd>Ctrl</kbd> + <kbd>S</kbd> (<kbd>⌘</kbd> + <kbd>S</kbd> on a Mac), then <b>Webpage, HTML Only</b>.</li>
+                    <li><b>Safari:</b> <kbd>⌘</kbd> + <kbd>S</kbd>, then Format: <b>Page Source</b>.</li>
+                    <li><b>Firefox:</b> <kbd>Ctrl</kbd> + <kbd>S</kbd> (<kbd>⌘</kbd> + <kbd>S</kbd> on a Mac), then <b>Web Page, HTML only</b>.</li>
+                    <li><b>Nothing happens?</b> Click once on an empty part of the page first, then press the keys again.</li>
                   </ul>
                 </details>
-                <p class="tip">Save the page itself, not DraftMySchedule's PDF. The PDF doesn't keep the rooms and times in a form Slotted can read.</p>
               </div>
             </li>
             <li class="task">

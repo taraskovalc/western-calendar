@@ -431,16 +431,10 @@ function updateReminderOption() {
 (function personalizeSaveSteps() {
   const ua = navigator.userAgent;
   const mac = /Mac/.test(navigator.platform) || /Mac OS X/.test(ua);
-  const key = mac ? '⌘' : 'Ctrl';
-  const steps = $('#save-steps');
   const kbd = text => el('kbd', { text });
-  if (/Firefox\//.test(ua)) {
-    steps.replaceChildren('Press ', kbd(key), ' + ', kbd('S'), ', choose ', el('b', { text: 'Web Page, HTML only' }), ', then click Save.');
-  } else if (/Safari\//.test(ua) && !/Chrome\/|Chromium\/|Edg\//.test(ua)) {
-    steps.replaceChildren('In the menu bar, choose ', el('b', { text: 'File → Save As…' }), ', set Format to ', el('b', { text: 'Page Source' }), ', then click Save.');
-  } else {
-    steps.replaceChildren('Press ', kbd(key), ' + ', kbd('S'), ', set the format to ', el('b', { text: 'Webpage, HTML Only' }), ', then click Save.');
-  }
+  $('#save-keys').replaceChildren(kbd(mac ? '⌘ Command' : 'Ctrl'), ' + ', kbd('S'));
+  const safari = /Safari\//.test(ua) && !/Chrome\/|Chromium\/|Edg\//.test(ua);
+  $('#save-format').textContent = /Firefox\//.test(ua) ? 'Web Page, HTML only' : safari ? 'Page Source' : 'Webpage, HTML Only';
 })();
 
 // Back to an empty schedule page (for "Start a new schedule").

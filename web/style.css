@@ -275,7 +275,10 @@ input:focus, select:focus { outline: none; border-color: var(--accent); box-shad
 .task-detail { margin: 4px 0 0 46px; color: var(--muted); font-size: 15px; }
 .task-detail > :is(p, details) + :is(p, details) { margin-top: 8px; }
 .task-detail b { color: var(--ink); }
-.save-main { color: var(--ink); }
+.save-steps { margin: 8px 0; padding-left: 22px; display: grid; gap: 6px; color: var(--ink); }
+.save-steps li::marker { font-weight: 700; color: var(--accent-ink); }
+.save-warning { padding: 8px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-ink); font-size: 14px; }
+.save-warning b { color: inherit; }
 .tip { font-size: 14px; }
 kbd { font: 13px var(--sans); padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; background: var(--paper-2); color: var(--ink); }
 .other-browsers summary { cursor: pointer; color: var(--accent-ink); width: fit-content; }
