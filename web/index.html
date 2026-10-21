@@ -21,8 +21,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261025">
-  <script type="module" src="app.js?v=20261025"></script>
+  <link rel="stylesheet" href="style.css?v=20261027">
+  <script type="module" src="app.js?v=20261028"></script>
 </head>
 <body>
   <div class="desk">
@@ -69,8 +69,9 @@
           <ol class="contents">
             <li><span class="num">1</span><span>Sign in, or continue without an account</span><span class="dots"></span><span class="pg">p. 1</span></li>
             <li><span class="num">2</span><span>Choose your calendar app</span><span class="dots"></span><span class="pg">p. 2</span></li>
-            <li><span class="num">3</span><span>Save your schedule from DraftMySchedule</span><span class="dots"></span><span class="pg">p. 3</span></li>
-            <li><span class="num">4</span><span>Add it to your calendar</span><span class="dots"></span><span class="pg">p. 4</span></li>
+            <li><span class="num">3</span><span>Get your schedule from DraftMySchedule</span><span class="dots"></span><span class="pg">p. 3</span></li>
+            <li><span class="num">4</span><span>Customize your calendar</span><span class="dots"></span><span class="pg">p. 4</span></li>
+            <li><span class="num">5</span><span>Add it to your calendar</span><span class="dots"></span><span class="pg">p. 5</span></li>
           </ol>
         </div>
         <div class="cover-actions">
@@ -85,13 +86,14 @@
       <li data-step="welcome"><span>1</span> Sign in</li>
       <li data-step="app"><span>2</span> Calendar app</li>
       <li data-step="schedule"><span>3</span> Your schedule</li>
-      <li data-step="done"><span>4</span> Add to calendar</li>
+      <li data-step="customize"><span>4</span> Customize</li>
+      <li data-step="done"><span>5</span> Add to calendar</li>
     </ol>
 
     <main class="notebook">
       <!-- The blank band at the top of a notebook page -->
       <div class="page-head" aria-hidden="true">
-        <span class="page-step" id="page-step">Step 1 of 4 · Start</span>
+        <span class="page-step" id="page-step">Step 1 of 5 · Start</span>
         <span class="page-date">Date: <span id="page-date"></span></span>
       </div>
 
@@ -101,6 +103,7 @@
         <section class="view view-centered" id="view-welcome" aria-labelledby="welcome-title" tabindex="-1">
           <h2 id="welcome-title">Sign in, or jump straight in</h2>
           <p class="lede welcome-lede" id="welcome-lede">An account is optional. You can make your calendar file either way.</p>
+          <p class="extension-note" id="extension-note" role="status" hidden></p>
           <p class="phone-note-card" data-phone-note hidden></p>
 
           <div id="welcome-intro">
@@ -240,6 +243,10 @@
             <span class="guide-done-text" id="guide-done-text"></span>
             <button type="button" class="link-button" id="guide-show">Show the steps again</button>
           </p>
+          <p class="extension-tip" id="extension-tip" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 4 14h7l-1 7 9-11h-7l1-7z"/></svg>
+            <span>Using Chrome? The free <a id="extension-link" href="#" target="_blank" rel="noopener">Slotted extension</a> adds a <b>Send to Slotted</b> button to DraftMySchedule, so you can skip these steps. It's optional: the steps below work just as well.</span>
+          </p>
           <ol class="checklist" id="guide">
             <li class="task">
               <label class="task-head"><input type="checkbox"><span class="check-box" aria-hidden="true"></span>
@@ -281,6 +288,7 @@
             </li>
           </ol>
 
+          <div id="file-part">
           <h3 class="part-title"><span>Add the file you saved</span></h3>
           <label class="dropzone" id="dropzone" for="file-input">
             <input id="file-input" type="file" accept=".html,.htm,text/html" class="visually-hidden">
@@ -292,30 +300,16 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
             The file is read on your device. It isn't uploaded anywhere.
           </p>
+          </div>
           <p class="status" id="read-status" role="status" aria-live="polite"></p>
 
           <!-- Shown once a file is read -->
           <div id="check-part" hidden>
             <h3 class="part-title"><span>Check your classes</span></h3>
             <p class="part-hint" id="found-summary"></p>
+            <div class="found-stats" id="found-stats"></div>
 
-            <div class="segmented preview-switch" role="radiogroup" aria-label="Show">
-              <label><input type="radio" name="preview" value="month" checked><span>Month</span></label>
-              <label><input type="radio" name="preview" value="week"><span>Week</span></label>
-            </div>
-
-            <div id="month-part">
-              <div class="month-head">
-                <button type="button" class="month-step" id="month-prev" aria-label="Previous month">‹</button>
-                <h4 class="month-title" id="month-title" aria-live="polite"></h4>
-                <button type="button" class="month-step" id="month-next" aria-label="Next month">›</button>
-              </div>
-              <p class="month-note" id="month-note"></p>
-              <div class="month" id="month"></div>
-              <div class="month-agenda" id="month-agenda" aria-live="polite"></div>
-            </div>
-
-            <div id="week-part" hidden>
+            <div id="week-part">
               <div class="term-tabs" role="tablist" aria-label="Term">
                 <button type="button" role="tab" class="term-tab" data-term="fall" aria-selected="true">Fall term</button>
                 <button type="button" role="tab" class="term-tab" data-term="winter" aria-selected="false">Winter term</button>
@@ -338,8 +332,27 @@
               <ul id="notes-list"></ul>
             </div>
 
-            <h3 class="part-title"><span>Choose what to include</span></h3>
-            <div class="options">
+            <div class="confirm-row">
+              <p>Does this match DraftMySchedule?</p>
+              <button type="button" class="button-ink button-big" id="confirm-schedule">Yes, customize my calendar →</button>
+              <p class="confirm-hint">Something's off? Add a different file above, or <button type="button" class="link-button" data-open="report" data-step="schedule">report a problem</button>.</p>
+            </div>
+          </div>
+
+          <div class="nav-row">
+            <button type="button" class="button-plain" data-go="app">← Back</button>
+          </div>
+        </section>
+
+        <!-- =================== 4. Customize =================== -->
+        <section class="view" id="view-customize" aria-labelledby="customize-title" tabindex="-1" hidden>
+          <div class="view-intro">
+            <h2 id="customize-title">Make it yours</h2>
+            <p class="lede">Choose what goes into your calendar. The preview updates as you go.</p>
+          </div>
+
+          <h3 class="part-title"><span>What goes in</span></h3>
+          <div class="options">
               <fieldset class="option">
                 <legend>Which term</legend>
                 <div class="segmented">
@@ -356,6 +369,31 @@
                   <label><input type="radio" name="parts" value="labs"><span>Labs &amp; tutorials only</span></label>
                 </div>
               </fieldset>
+          </div>
+
+          <h3 class="part-title"><span>Preview</span></h3>
+            <div id="month-part" class="month-part">
+              <div class="month-head">
+                <button type="button" class="month-step" id="month-prev" aria-label="Previous month">‹</button>
+                <h4 class="month-title" id="month-title" aria-live="polite"></h4>
+                <button type="button" class="month-step" id="month-next" aria-label="Next month">›</button>
+              </div>
+              <p class="month-note" id="month-note"></p>
+              <div class="month" id="month"></div>
+              <div class="month-agenda" id="month-agenda" aria-live="polite"></div>
+            </div>
+
+          <div class="options options-labs">
+              <fieldset class="option option-wide" id="labs-option" hidden>
+                <legend>Your labs and tutorials</legend>
+                <p class="option-note labs-intro">DraftMySchedule lists every lab as weekly. If one only runs every other week, or starts later or ends earlier than the term, set it here, or pick the exact days. Holidays and reading week are skipped by themselves. Check your course outline for the exact weeks.</p>
+                <p class="option-note labs-term" id="labs-term"></p>
+                <ul class="labs-list" id="labs-list"></ul>
+              </fieldset>
+          </div>
+
+          <h3 class="part-title"><span>Details</span></h3>
+          <div class="options">
               <fieldset class="option" id="reminder-option">
                 <legend>Reminder before each class</legend>
                 <select id="alarm" aria-label="Reminder before each class">
@@ -407,35 +445,42 @@
                   <p>Your calendar app chooses the colour itself. Once your classes are added, look for the colour option in that calendar's settings, usually by right-clicking it or opening its info.</p>
                 </div>
               </fieldset>
-              <fieldset class="option option-wide" id="labs-option" hidden>
-                <legend>Your labs and tutorials</legend>
-                <p class="option-note labs-intro">DraftMySchedule lists every lab as weekly. If one only runs every other week, or starts later or ends earlier than the term, set it here, or pick the exact days. Holidays and reading week are skipped by themselves. Check your course outline for the exact weeks.</p>
-                <p class="option-note labs-term" id="labs-term"></p>
-                <ul class="labs-list" id="labs-list"></ul>
-              </fieldset>
-            </div>
-
-            <div class="download-box">
-              <p class="download-detail" id="download-detail"></p>
-              <button type="button" class="button-ink button-big" id="save-link" hidden>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
-                <span id="save-link-text">Save and get my calendar link</span>
-              </button>
-              <p class="link-explain" id="link-explain" hidden>Add the link to your calendar app once. When your classes change, update them here and your calendar follows by itself.</p>
-              <button type="button" class="button-ink button-big" id="download">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>
-                <span id="download-text">Download calendar file</span>
-              </button>
-            </div>
           </div>
 
           <div class="nav-row">
-            <button type="button" class="button-plain" data-go="app">← Back</button>
+            <button type="button" class="button-plain" data-go="schedule">← Back</button>
+            <button type="button" class="button-ink" data-go="done">Next: add to calendar →</button>
           </div>
         </section>
 
-        <!-- =================== 4. Done =================== -->
+        <!-- =================== 5. Add to calendar =================== -->
         <section class="view" id="view-done" aria-labelledby="done-title" tabindex="-1" hidden>
+          <div id="finish-part">
+            <div class="view-intro">
+              <h2 id="finish-title">Add it to your calendar</h2>
+              <p class="lede" id="finish-lede"></p>
+            </div>
+            <div class="paper-card finish-card">
+              <span class="tape" aria-hidden="true"></span>
+              <h3>What's going in</h3>
+              <div class="found-stats" id="finish-stats"></div>
+              <p><button type="button" class="link-button" data-go="customize">Change something</button></p>
+            </div>
+              <div class="download-box">
+                <p class="download-detail" id="download-detail"></p>
+                <button type="button" class="button-ink button-big" id="save-link" hidden>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+                  <span id="save-link-text">Save and get my calendar link</span>
+                </button>
+                <p class="link-explain" id="link-explain" hidden>Add the link to your calendar app once. When your classes change, update them here and your calendar follows by itself.</p>
+                <button type="button" class="button-ink button-big" id="download">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg>
+                  <span id="download-text">Download calendar file</span>
+                </button>
+              </div>
+          </div>
+
+          <div id="done-part">
           <div class="confetti" id="confetti" aria-hidden="true"></div>
           <div class="view-intro">
             <p class="scribble">done!</p>
@@ -545,9 +590,11 @@
           <p class="check-note" id="check-note">Something not right? Compare a few classes with DraftMySchedule. If your schedule changes later, come back and make a new file.</p>
           <p class="check-note report-note">Found a class that's missing or wrong? <button type="button" class="link-button" data-open="report" data-step="add-to-calendar">Report a problem</button> and it'll get fixed.</p>
 
+          </div>
+
           <div class="nav-row">
-            <button type="button" class="button-plain" data-go="schedule">← Back to my classes</button>
-            <button type="button" class="button-plain" id="download-again">Download the file again</button>
+            <button type="button" class="button-plain" data-go="customize">← Back to customizing</button>
+            <button type="button" class="button-plain" id="download-again" hidden>Download the file again</button>
           </div>
         </section>
       </div>

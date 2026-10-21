@@ -856,3 +856,38 @@ body { overflow-x: clip; }
 .labdays-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 16px; padding-top: 12px; border-top: 1.5px solid var(--line); }
 .labdays-count { margin: 0 auto 0 0 !important; font-weight: 600; color: var(--ink) !important; }
 @media (max-width: 760px) { .labdays-actions .button-ink, .labdays-actions .button-plain { width: auto; flex: 1; } }
+
+/* the schedule arrived from the browser extension */
+.extension-note {
+  margin: 0 auto 18px; max-width: 520px; padding: 12px 16px; border-radius: 12px;
+  background: var(--done-soft); color: var(--done); font-size: 15px; text-align: center;
+}
+.extension-note b { color: inherit; }
+.extension-note.warn { background: var(--accent-soft); color: var(--accent-ink); }
+.from-extension #guide-done, .from-extension #file-part { display: none; }
+
+/* step 3: what the file has, and "yes, this is it" */
+.found-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 4px 0 18px; }
+.confirm-row { margin: 28px auto 0; padding: 22px 18px; max-width: 560px; text-align: center; border: 2px dashed var(--line); border-radius: 16px; }
+.confirm-row > p:first-child { margin: 0 0 12px; font: 700 26px/1.1 var(--hand); color: var(--ink); }
+.confirm-hint { margin: 12px 0 0; font-size: 14px; color: var(--muted); }
+
+/* step 4: customize */
+.month-part { margin-bottom: 8px; }
+.options-labs { margin-top: 26px; }
+.options-labs:has(#labs-option[hidden]) { display: none; }
+
+/* step 5: what's going in, then the buttons */
+.finish-card { max-width: 640px; margin: 0 auto 22px; text-align: center; }
+.finish-card h3 { margin: 0 0 12px; font: 700 26px/1 var(--hand); }
+.finish-card .found-stats { margin-bottom: 8px; }
+.finish-card p { margin: 0; }
+.stat-swatch { display: inline-block; width: 40px; height: 18px; margin-top: 2px; border-radius: 6px; background: var(--c); }
+
+/* optional: the extension tip above the "save your page" steps */
+.extension-tip {
+  display: flex; gap: 10px; align-items: flex-start; max-width: 640px; margin: 0 auto 16px; padding: 10px 14px;
+  border: 1.5px solid var(--line); border-radius: 12px; background: var(--paper); font-size: 14px; color: var(--muted);
+}
+.extension-tip svg { flex: none; width: 18px; height: 18px; margin-top: 1px; fill: var(--highlight); stroke: var(--accent-ink); stroke-width: 1.5; stroke-linejoin: round; }
+.extension-tip b, .extension-tip a { color: var(--ink); }

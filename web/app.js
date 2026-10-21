@@ -8,7 +8,7 @@ import { api, API_URL, ApiUnavailable } from './api.js';
 import { mountReportForm } from './report-form.js?v=20261018';
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;  // real schedule pages are ~70 KB
-const VIEWS = ['cover', 'welcome', 'app', 'schedule', 'done'];
+const VIEWS = ['cover', 'welcome', 'app', 'schedule', 'customize', 'done'];
 const DAY_ORDER = ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'];
 const DAY_NAMES = { M: 'Mon', Tu: 'Tue', W: 'Wed', Th: 'Thu', F: 'Fri', Sa: 'Sat', Su: 'Sun' };
 const DAY_INDEX = { Su: 0, M: 1, Tu: 2, W: 3, Th: 4, F: 5, Sa: 6 };
@@ -18,6 +18,7 @@ const $ = selector => document.querySelector(selector);
 const state = {
   user: null,          // signed-in user, or null
   started: false,      // chose to sign in or continue as guest
+  confirmed: false,    // said "yes, this is my schedule" (opens Customize and Add to calendar)
   app: null,           // 'apple' | 'google' | 'outlook' | 'other'
   courses: [],
   academicYear: LATEST_YEAR,
@@ -61,11 +62,12 @@ const chosen = name => document.querySelector(`input[name="${name}"]:checked`)?.
 function allowedView(wanted) {
   if (wanted === 'app' && !state.started) return 'cover';
   if (wanted === 'schedule' && (!state.started || !state.app)) return state.started ? 'app' : 'cover';
-  if (wanted === 'done' && !state.lastDownload) return allowedView('schedule');
+  // Customizing and adding need a schedule the person has checked.
+  if ((wanted === 'customize' || wanted === 'done') && !state.confirmed) return allowedView('schedule');
   return VIEWS.includes(wanted) ? wanted : 'cover';
 }
 
-const VIEW_LABELS = { welcome: 'Sign in', app: 'Calendar app', schedule: 'Your schedule', done: 'Add to calendar' };
+const VIEW_LABELS = { welcome: 'Sign in', app: 'Calendar app', schedule: 'Your schedule', customize: 'Customize', done: 'Add to calendar' };
 $('#page-date').textContent = new Date().toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
 
 function show(view, { push = true } = {}) {
@@ -75,8 +77,8 @@ function show(view, { push = true } = {}) {
   $('.notebook').hidden = onCover;
   $('#progress').hidden = onCover;
   for (const name of VIEWS.slice(1)) $(`#view-${name}`).hidden = name !== view;
-  const index = VIEWS.indexOf(view) - 1;  // position among the 4 notebook pages
-  if (!onCover) $('#page-step').textContent = `Step ${index + 1} of 4 · ${VIEW_LABELS[view]}`;
+  const index = VIEWS.indexOf(view) - 1;  // position among the notebook pages
+  if (!onCover) $('#page-step').textContent = `Step ${index + 1} of ${VIEWS.length - 1} · ${VIEW_LABELS[view]}`;
   document.querySelectorAll('#progress li').forEach((li, i) => {
     li.classList.toggle('current', i === index);
     li.classList.toggle('complete', i < index);
@@ -84,13 +86,97 @@ function show(view, { push = true } = {}) {
   });
   if (push && location.hash !== `#${view}`) history.pushState(null, '', `#${view}`);
   if (view === 'welcome') renderWelcome();
-  if (view === 'done') renderDone();
+  if (view === 'schedule') loadFromExtension();
+  if (view === 'customize') renderPreview();
+  if (view === 'done') renderFinal();
   window.scrollTo({ top: 0, behavior: 'smooth' });
   $(`#view-${view}`).focus({ preventScroll: true });
 }
 
 window.addEventListener('popstate', () => show(location.hash.slice(1), { push: false }));
 document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => show(button.dataset.go)));
+
+/* ================= the Slotted extension (optional) ================= */
+// Once the extension is on the Chrome Web Store, paste its link here and a
+// short, optional tip appears above the "save your page" steps (Chrome, Edge
+// and other Chromium browsers on a computer only). Empty = the tip stays hidden.
+const EXTENSION_URL = '';
+const canUseExtension = /Chrome\//.test(navigator.userAgent) && !/Mobile|Android|CriOS/.test(navigator.userAgent);
+if (EXTENSION_URL && canUseExtension) {
+  $('#extension-link').href = EXTENSION_URL;
+  $('#extension-tip').hidden = false;
+}
+
+// The browser extension adds "Send to Slotted" to DraftMySchedule. It opens
+// this page and hands over the schedule page itself, so there's nothing to
+// save or upload. The page is read here, in the browser, like a dropped file.
+// Without the extension, nothing here runs and the usual steps work as before.
+
+let fromExtension = null;  // the DraftMySchedule page, until it's read
+window.addEventListener('message', event => {
+  if (event.source !== window || event.origin !== location.origin) return;
+  const { source, type, html } = event.data ?? {};
+  if (source !== 'slotted-extension') return;
+  // Tidy the address bar: the one-time key isn't needed any more.
+  const params = new URLSearchParams(location.search);
+  if (params.get('from') === 'draftmyschedule') {
+    params.delete('from');
+    params.delete('key');
+    history.replaceState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}${location.hash}`);
+  }
+  if (type === 'expired') {
+    extensionNote('This tab was already used. To send your schedule again, click <b>Send to Slotted</b> on DraftMySchedule.', true);
+    if (!$('#view-cover').hidden) show('welcome');
+    return;
+  }
+  if (type !== 'schedule' || typeof html !== 'string' || !html || html.length > MAX_FILE_BYTES) return;
+  fromExtension = html;
+  if (!$('#view-schedule').hidden) { loadFromExtension(); return; }
+  extensionNote('<b>Your schedule is here from DraftMySchedule.</b> Sign in or continue as a guest, choose your calendar app, and your classes are already filled in.');
+  if (!$('#view-cover').hidden) show('welcome');
+});
+// Tell the extension this page is listening.
+window.postMessage({ source: 'slotted-page', type: 'ready' }, location.origin);
+
+function extensionNote(html, warn = false) {
+  const note = $('#extension-note');
+  note.innerHTML = html;
+  note.classList.toggle('warn', warn);
+  note.hidden = false;
+}
+
+// "Continue with Google" leaves this page for Google and comes back, which
+// would lose a schedule the extension just sent. Keep it in this tab's
+// sessionStorage for that trip, and pick it up again when the page returns.
+const PENDING_KEY = 'slotted-pending-schedule';
+$('#oauth-google').addEventListener('click', () => {
+  if (!fromExtension) return;
+  try { sessionStorage.setItem(PENDING_KEY, fromExtension); } catch { /* storage off: they'll send it again */ }
+});
+try {
+  const saved = sessionStorage.getItem(PENDING_KEY);
+  if (saved) {
+    sessionStorage.removeItem(PENDING_KEY);
+    fromExtension = saved;
+    extensionNote('<b>Your schedule from DraftMySchedule is still here.</b> Choose your calendar app, and your classes are already filled in.');
+    // Past the cover, once the rest of the page has set itself up.
+    setTimeout(() => { if (!$('#view-cover').hidden) show('welcome'); });
+  }
+} catch { /* storage off */ }
+
+function loadFromExtension() {
+  if (!fromExtension) return;
+  const file = new File([fromExtension], 'DraftMySchedule.html', { type: 'text/html' });
+  fromExtension = null;
+  $('#extension-note').hidden = true;
+  handleFile(file, 'sent from DraftMySchedule').then(ok => {
+    if (!ok) return;  // couldn't read it: the usual steps and file box stay, with the reason
+    // Nothing was saved, so don't show the saving steps or the file box.
+    $('#view-schedule').classList.add('from-extension');
+    $('#schedule-title').textContent = 'Your schedule from DraftMySchedule';
+    $('#view-schedule .view-intro .lede').textContent = 'The Slotted extension sent it over, so there was nothing to save. Check your classes below.';
+  });
+}
 
 /* ================= phones ================= */
 // Step 3 needs a computer, and Google Calendar and Outlook can only add a
@@ -344,8 +430,13 @@ function pickColour(colour) {
   box.checked = true;
 }
 
+const SCHEDULE_TITLE = $('#schedule-title').textContent;
+const SCHEDULE_LEDE = $('#view-schedule .view-intro .lede').textContent;
 function resetSchedulePage() {
-  Object.assign(state, { courses: [], scheduleId: null, scheduleName: null, lastDownload: null, feed: null, saveResult: null });
+  $('#view-schedule').classList.remove('from-extension');
+  $('#schedule-title').textContent = SCHEDULE_TITLE;
+  $('#view-schedule .view-intro .lede').textContent = SCHEDULE_LEDE;
+  Object.assign(state, { courses: [], scheduleId: null, scheduleName: null, lastDownload: null, feed: null, saveResult: null, confirmed: false });
   pickColour(null);
   document.querySelector('input[name="parts"][value="all"]').checked = true;
   $('#cal-name').value = '';
@@ -363,11 +454,13 @@ function resetSchedulePage() {
 function collapseGuide(text) {
   document.querySelectorAll('#guide input').forEach(box => { box.checked = true; });
   $('#guide').hidden = true;
+  $('#extension-tip').hidden = true;
   $('#guide-done').hidden = false;
   $('#guide-done-text').textContent = `✓ ${text}`;
 }
 function showGuide() {
   $('#guide').hidden = false;
+  $('#extension-tip').hidden = !(EXTENSION_URL && canUseExtension);
   $('#guide-done').hidden = true;
 }
 $('#guide-show').addEventListener('click', showGuide);
@@ -378,7 +471,8 @@ function setStatus(message, kind) {
   status.textContent = message;
 }
 
-async function handleFile(file) {
+// label: how to name where the schedule came from ("Loaded: …").
+async function handleFile(file, label = file?.name) {
   if (!file) return;
   if (!/\.html?$/i.test(file.name)) {
     setStatus(`“${file.name}” isn't a saved web page (.html). Save the My Current Schedule page itself, as in step 3 above, not the PDF.`, 'error');
@@ -409,13 +503,13 @@ async function handleFile(file) {
   // settings for the same lab section.
   const kept = new Map(state.courses.filter(c => c.repeat).map(c => [labKey(c), c.repeat]));
   for (const c of result.courses) if (kept.has(labKey(c))) c.repeat = kept.get(labKey(c));
-  Object.assign(state, { courses: result.courses, academicYear: year, terms: TERM_DATES[year], lastDownload: null, saveResult: null });
+  Object.assign(state, { courses: result.courses, academicYear: year, terms: TERM_DATES[year], lastDownload: null, saveResult: null, confirmed: false });
   const notes = [...result.notes];
 
   // They clearly found and saved the file: fold the four steps away.
-  collapseGuide(`Schedule loaded: ${file.name}`);
+  collapseGuide(`Schedule loaded: ${label}`);
   $('#dropzone').classList.add('loaded');
-  $('.drop-title').textContent = `Loaded: ${file.name}`;
+  $('.drop-title').textContent = `Loaded: ${label}`;
   $('.drop-detail').textContent = 'Drop a different file here to replace it.';
   const found = `${plural(courseCount(), 'course')} (${plural(timedCount(), 'lecture, lab or tutorial', 'lectures, labs and tutorials')} with set times)`;
   setStatus(state.scheduleId
@@ -426,6 +520,7 @@ async function handleFile(file) {
   $('#check-part').hidden = false;
   updateDownloadDetail();
   $('#check-part').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  return true;
 }
 
 const input = $('#file-input');
@@ -444,7 +539,6 @@ function meetingsFor(season) {
   const out = [];
   for (const course of state.courses) {
     if (!seasonsFor(course.number).includes(season)) continue;
-    if (!partIncluded(course.component, chosen('parts') ?? 'all')) continue;
     for (const meeting of course.meetings) {
       if (!meeting.start || !meeting.days.length) continue;
       for (const day of meeting.days) out.push({ course, meeting, day });
@@ -461,6 +555,8 @@ function renderCheck(notes) {
   const timed = state.courses.filter(hasTime);
   const untimed = state.courses.filter(c => !hasTime(c));
   const unplaced = timed.filter(c => whyNotPlaced(c.number));
+  $('#found-summary').textContent = 'Compare this with DraftMySchedule. If it matches, you can customize your calendar next.';
+  renderFoundStats(timed, untimed.length + unplaced.length);
   // Open the term that's next: winter once fall classes are over.
   const fallOver = localDate(new Date()) > (state.terms.find(t => t.season === 'fall')?.ends_on ?? '');
   state.tab = (fallOver && meetingsFor('winter').length) || !meetingsFor('fall').length ? 'winter' : 'fall';
@@ -485,10 +581,29 @@ function renderCheck(notes) {
   renderLabOptions();
   updateNameOption();
   resetPreview();
-  renderPreview();
+  renderWeek();
   $('#notes-list').replaceChildren(...allNotes.map(n => el('li', { text: n })));
   $('#read-notes').hidden = allNotes.length === 0;
 }
+
+// What the file has, at a glance: courses, class times, labs, not added.
+function renderFoundStats(timed, notAdded) {
+  const stat = (label, value, extra = '') => el('span', { className: `lab-stat${extra}` }, [el('small', { text: label }), el('b', { text: value })]);
+  const terms = new Set(timed.flatMap(c => seasonsFor(c.number)));
+  const labs = timed.filter(c => isLabPart(c.component)).length;
+  $('#found-stats').replaceChildren(
+    stat('Courses', String(courseCount())),
+    stat('Lectures', String(timed.length - labs)),
+    stat('Labs & tutorials', String(labs)),
+    stat('Terms', terms.size === 2 ? 'Fall and winter' : terms.has('winter') ? 'Winter' : terms.has('fall') ? 'Fall' : 'None'),
+    ...(notAdded ? [stat('Not added', String(notAdded), ' skipped')] : []),
+  );
+}
+
+$('#confirm-schedule').addEventListener('click', () => {
+  state.confirmed = true;
+  show('customize');
+});
 
 function renderWeek() {
   document.querySelectorAll('.term-tab').forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.term === state.tab)));
@@ -593,7 +708,6 @@ document.querySelectorAll('.term-tab').forEach(tab => tab.addEventListener('clic
 
 /* ---------- the preview: a month (what the calendar app will show) or a typical week ---------- */
 
-const previewView = () => chosen('preview') ?? 'month';
 const MONTH_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const monthName = key => new Date(`${key}-15T12:00:00Z`).toLocaleDateString('en-CA', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const shiftMonth = (key, n) => {
@@ -751,22 +865,14 @@ for (const [id, step] of [['#month-prev', -1], ['#month-next', 1]]) {
 function resetPreview() {
   state.month = startingMonth();
   pickAgendaDay();
-  // The week view only offers the chosen term(s).
-  const include = chosenTerms();
-  document.querySelectorAll('.term-tab').forEach(tab => { tab.hidden = include !== 'both' && tab.dataset.term !== include; });
-  if (include !== 'both') state.tab = include;
 }
 
+// The month preview on the Customize page.
 function renderPreview() {
-  const month = previewView() === 'month';
-  $('#month-part').hidden = !month;
-  $('#week-part').hidden = month;
-  $('#found-summary').textContent = month
-    ? 'This is what your calendar app will show, with the choices below. Switch to Week to compare a week with DraftMySchedule.'
-    : 'Compare this week with DraftMySchedule before you continue.';
-  if (month) renderMonth(); else renderWeek();
+  if (!state.courses.length || !state.terms) return;
+  if (!state.month) resetPreview();
+  renderMonth();
 }
-document.querySelectorAll('input[name="preview"]').forEach(r => r.addEventListener('change', renderPreview));
 
 // ["Wed, Sep 30 (National Day for Truth and Reconciliation)", "Oct 12–16 (Fall reading week)"]
 function daysOff(term) {
@@ -1039,7 +1145,7 @@ $('#labdays-save').addEventListener('click', () => {
 function updateDownloadDetail() {
   const total = summarize(chosen('include'), chosen('parts') ?? 'all').total;
   updateFinishButtons();
-  if (state.courses.length && state.terms) renderPreview();
+  renderPreview();
   // Nothing to add (for example every course is online): say so instead of
   // offering an empty calendar file.
   $('#download').disabled = total === 0;
@@ -1090,29 +1196,69 @@ function downloadCalendar() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  state.lastDownload = { mode: 'file', include, parts, alarmMinutes, filename, calendarColor: pickedColour() };
+  state.lastDownload = { mode: 'file', include, parts, alarmMinutes, filename, calendarColor: pickedColour(), key: choicesKey() };
 }
 $('#download').addEventListener('click', () => {
   downloadCalendar();
-  show('done');
+  renderFinal({ celebrate: true });
   if (state.user) saveToAccount();
 });
 $('#save-link').addEventListener('click', () => {
   if (!state.user) return;
   const include = chosen('include');
   const alarmMinutes = state.app === 'google' ? 0 : Number($('#alarm').value);
-  state.lastDownload = { mode: 'link', include, parts: chosen('parts') ?? 'all', alarmMinutes, calendarColor: pickedColour(), hadFeed: Boolean(state.scheduleId && state.feed) };
+  state.lastDownload = { mode: 'link', include, parts: chosen('parts') ?? 'all', alarmMinutes, calendarColor: pickedColour(), hadFeed: Boolean(state.scheduleId && state.feed), key: choicesKey() };
   state.saveResult = null;
-  show('done');
+  renderFinal({ celebrate: true });
   saveToAccount();
 });
+
+// Everything chosen on the Customize page, to tell whether the last file or
+// link still matches it.
+const choicesKey = () => JSON.stringify([chosen('include'), chosen('parts'), $('#alarm').value, customName(), pickedColour(),
+  state.courses.map(c => c.repeat ?? null)]);
+
+// Step 5 shows the choices and the buttons until a file or link is made, then
+// the results and how to add it. Changing something afterwards starts over.
+function renderFinal({ celebrate = false } = {}) {
+  if (state.lastDownload && state.lastDownload.key !== choicesKey()) state.lastDownload = null;
+  const finished = Boolean(state.lastDownload);
+  $('#finish-part').hidden = finished;
+  $('#done-part').hidden = !finished;
+  $('#download-again').hidden = !finished || state.lastDownload.mode === 'link';
+  if (finished) renderDone({ celebrate }); else renderFinish();
+  if (celebrate) window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderFinish() {
+  updateDownloadDetail();
+  const include = chosenTerms();
+  const parts = chosen('parts') ?? 'all';
+  const { total } = summarize(include, parts);
+  const stat = (label, value, extra = '') => el('span', { className: `lab-stat${extra}` }, [el('small', { text: label }), el('b', { text: value })]);
+  const colour = pickedColour();
+  $('#finish-lede').textContent = state.user
+    ? `Get a calendar link for ${APP_NAMES[state.app]} that keeps itself up to date, or download a file.`
+    : `Download your calendar file. Then this page shows how to add it to ${APP_NAMES[state.app]}.`;
+  // The count is already in the summary; only show the line when there's nothing to add.
+  $('#download-detail').hidden = total > 0;
+  $('#finish-stats').replaceChildren(
+    stat('Classes', total.toLocaleString()),
+    stat('Terms', { both: 'Fall and winter', fall: 'Fall only', winter: 'Winter only' }[include]),
+    stat('Includes', { all: 'Everything', lectures: 'Lectures only', labs: 'Labs & tutorials' }[parts]),
+    stat('Reminder', state.app === 'google' ? 'Set in Google' : Number($('#alarm').value) ? `${$('#alarm').value} min before` : 'None'),
+    stat('Calendar name', customName() || termName()),
+    ...(colour ? [el('span', { className: 'lab-stat' }, [el('small', { text: 'Colour' }), el('b', { className: 'stat-swatch', attrs: { style: `--c:${colour}` }, text: ' ' })])] : []),
+  );
+}
 $('#download-again').addEventListener('click', downloadCalendar);
 
-/* ================= 4. done ================= */
+
+/* ================= 5. add to calendar: the results ================= */
 
 const APP_NAMES = { apple: 'Apple Calendar', google: 'Google Calendar', outlook: 'Outlook', other: 'your calendar app' };
 
-function renderDone() {
+function renderDone({ celebrate = false } = {}) {
   const { mode, include, parts, alarmMinutes, filename, hadFeed } = state.lastDownload;
   const linkMode = mode === 'link';
   const { total, skipped, next } = summarize(include, parts);
@@ -1159,7 +1305,7 @@ function renderDone() {
   renderAccountDone();
   $('#howto-title').textContent = `Add it to ${APP_NAMES[state.app]}`;
   for (const name of ['apple', 'google', 'outlook', 'other']) $(`#howto-${name}`).hidden = name !== state.app;
-  throwConfetti();
+  if (celebrate) throwConfetti();
 }
 
 // A short burst of paper confetti in the sticky-note colours.
@@ -1331,6 +1477,7 @@ async function openSavedSchedule(id) {
     scheduleName: schedule.name,
     lastDownload: null,
     saveResult: null,
+    confirmed: false,
     feed,
   });
   // Bring back the settings saved with it.
