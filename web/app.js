@@ -203,7 +203,7 @@ function loadFromExtension() {
 // Cloudflare Web Analytics: counts visits and pages, with no cookies and no
 // tracking across sites. Paste the site token from Cloudflare (Analytics &
 // Logs -> Web Analytics -> slotted.taraskoval.ca) to turn it on. Empty = off.
-const CF_ANALYTICS_TOKEN = '';
+const CF_ANALYTICS_TOKEN = '4137a26d33dc4aa88bb33ecbd943af16';
 if (CF_ANALYTICS_TOKEN && location.hostname === 'slotted.taraskoval.ca') {
   const beacon = document.createElement('script');
   beacon.defer = true;
