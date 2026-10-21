@@ -10,6 +10,7 @@ import { requireAuth } from '../require-auth.js';
 import { getTerms } from '../terms.js';
 import { buildCalendar } from '../../../shared/ics.js';
 import { feedLinks } from './feeds.js';
+import { countToday } from '../stats.js';
 
 export const schedulesRouter = express.Router();
 schedulesRouter.use(requireAuth);  // the guard runs before every route below
@@ -251,7 +252,10 @@ schedulesRouter.post('/:id/feed', async (req, res) => {
      RETURNING *`,
     [req.params.id, newToken()],
   );
-  if (inserted.rows[0]) return res.status(201).json({ feed: toFeed(inserted.rows[0]) });
+  if (inserted.rows[0]) {
+    await countToday('calendar_link');  // anonymous daily total
+    return res.status(201).json({ feed: toFeed(inserted.rows[0]) });
+  }
   const { rows } = await pool.query('SELECT * FROM calendar_feeds WHERE schedule_id = $1', [req.params.id]);
   res.json({ feed: toFeed(rows[0]) });
 });

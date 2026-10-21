@@ -12,6 +12,7 @@ import { schedulesRouter } from './routes/schedules.js';
 import { feedsRouter } from './routes/feeds.js';
 import { oauthRouter } from './routes/oauth.js';
 import { reportRouter } from './routes/report.js';
+import { statsRouter } from './routes/stats.js';
 import { requireJson } from './require-auth.js';
 import { cors } from './cors.js';
 
@@ -39,6 +40,7 @@ app.use('/auth', oauthRouter);              // /auth/providers, /auth/google/...
 app.use('/schedules', schedulesRouter);     // saved schedules (signed-in only)
 app.use('/feeds', feedsRouter);             // public subscription links (the token is the key)
 app.use('/report', reportRouter);           // "Report a problem" form, emailed to Taras
+app.use('/stats', statsRouter);             // anonymous daily totals (calendars made)
 
 // GET /  ->  proves the API itself is running.
 app.get('/', (req, res) => {

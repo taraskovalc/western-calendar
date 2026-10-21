@@ -97,7 +97,8 @@ The source is in [`extension/`](extension).
   on your device.
 - **Accounts store only what they need:** email, an Argon2 password hash, saved schedules and your
   calendar link.
-- **No ads, no tracking, no analytics.** Nothing is sold or shared for marketing.
+- **No ads and no tracking.** Only anonymous counts of visits and calendars made. Nothing is sold
+  or shared for marketing.
 - **Delete anytime.** Deleting your account removes everything, and backups within 14 days.
 
 Read the full [privacy policy](https://slotted.taraskoval.ca/privacy.html).

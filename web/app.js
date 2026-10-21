@@ -199,6 +199,19 @@ function loadFromExtension() {
   });
 }
 
+/* ================= visit statistics (optional) ================= */
+// Cloudflare Web Analytics: counts visits and pages, with no cookies and no
+// tracking across sites. Paste the site token from Cloudflare (Analytics &
+// Logs -> Web Analytics -> slotted.taraskoval.ca) to turn it on. Empty = off.
+const CF_ANALYTICS_TOKEN = '';
+if (CF_ANALYTICS_TOKEN && location.hostname === 'slotted.taraskoval.ca') {
+  const beacon = document.createElement('script');
+  beacon.defer = true;
+  beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+  beacon.dataset.cfBeacon = JSON.stringify({ token: CF_ANALYTICS_TOKEN });
+  document.head.append(beacon);
+}
+
 /* ================= phones ================= */
 // Step 3 needs a computer, and Google Calendar and Outlook can only add a
 // calendar file or link from a computer. Tell phone visitors right away.
@@ -1211,6 +1224,8 @@ function downloadCalendar() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  // Adds 1 to today's anonymous total of calendars made. Nothing about you is sent.
+  api('/stats/calendar-file', { method: 'POST' }).catch(() => {});
   state.lastDownload = { mode: 'file', include, parts, alarmMinutes, filename, calendarColor: pickedColour(), key: choicesKey() };
 }
 $('#download').addEventListener('click', () => {
