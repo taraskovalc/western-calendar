@@ -123,6 +123,12 @@ p { margin: 0; }
 .progress li.current span { background: var(--accent); border-color: var(--accent); color: #fff; }
 .progress li.complete { color: var(--done); }
 .progress li.complete span { background: var(--done); border-color: var(--done); color: var(--paper); }
+/* Finished tabs are clickable, to go back to that step. */
+.progress li.complete { cursor: pointer; transition: background .15s, color .15s; }
+.progress li.complete:hover { background: color-mix(in srgb, var(--paper) 80%, var(--desk)); }
+.progress li.complete:hover span { transform: scale(1.06); }
+.progress li.complete:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.progress li span { transition: transform .15s; }
 
 /* ---------- the notebook page ---------- */
 .notebook {

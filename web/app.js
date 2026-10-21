@@ -83,6 +83,16 @@ function show(view, { push = true } = {}) {
     li.classList.toggle('current', i === index);
     li.classList.toggle('complete', i < index);
     if (i === index) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+    // Finished steps (green) can be clicked to go back. Steps ahead can't.
+    if (i < index) {
+      li.setAttribute('role', 'button');
+      li.tabIndex = 0;
+      li.setAttribute('aria-label', `Go back to step ${i + 1}: ${VIEW_LABELS[li.dataset.step]}`);
+    } else {
+      li.removeAttribute('role');
+      li.removeAttribute('tabindex');
+      li.removeAttribute('aria-label');
+    }
   });
   if (push && location.hash !== `#${view}`) history.pushState(null, '', `#${view}`);
   if (view === 'welcome') renderWelcome();
@@ -94,6 +104,17 @@ function show(view, { push = true } = {}) {
 }
 
 window.addEventListener('popstate', () => show(location.hash.slice(1), { push: false }));
+
+// Clicking a green (finished) tab goes back to that step.
+const goToTab = li => { if (li?.classList.contains('complete')) show(li.dataset.step); };
+$('#progress').addEventListener('click', event => goToTab(event.target.closest('li')));
+$('#progress').addEventListener('keydown', event => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const li = event.target.closest('li');
+  if (!li?.classList.contains('complete')) return;
+  event.preventDefault();
+  goToTab(li);
+});
 document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => show(button.dataset.go)));
 
 /* ================= the Slotted extension (optional) ================= */
