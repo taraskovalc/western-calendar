@@ -118,10 +118,10 @@ $('#progress').addEventListener('keydown', event => {
 document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => show(button.dataset.go)));
 
 /* ================= the Slotted extension (optional) ================= */
-// Once the extension is on the Chrome Web Store, paste its link here and a
-// short, optional tip appears above the "save your page" steps (Chrome, Edge
-// and other Chromium browsers on a computer only). Empty = the tip stays hidden.
-const EXTENSION_URL = '';
+// The extension's Chrome Web Store page. A short, optional tip linking to it
+// appears above the "save your page" steps (Chrome, Edge and other Chromium
+// browsers on a computer only). Empty = the tip stays hidden.
+const EXTENSION_URL = 'https://chromewebstore.google.com/detail/slotted-for-draftmyschedu/jbnmiindjkaooefolkgojlgbnbodfnkb';
 const canUseExtension = /Chrome\//.test(navigator.userAgent) && !/Mobile|Android|CriOS/.test(navigator.userAgent);
 if (EXTENSION_URL && canUseExtension) {
   $('#extension-link').href = EXTENSION_URL;

@@ -81,6 +81,8 @@ wants their courses in their calendar each year, with no strings attached.
 Schedule page. One click opens Slotted with your schedule already loaded. It's optional: the
 website works the same without it.
 
+**[Install it from the Chrome Web Store](https://chromewebstore.google.com/detail/slotted-for-draftmyschedu/jbnmiindjkaooefolkgojlgbnbodfnkb)** (Chrome, Edge and other Chromium browsers).
+
 - Runs only on the My Current Schedule page and on Slotted.
 - Asks for a single permission (`storage`) to hand the page to the Slotted tab.
 - The copied page never leaves your browser and is deleted as soon as Slotted reads it.
@@ -152,7 +154,7 @@ them.
 
 Planned:
 
-- [ ] Chrome Web Store release of the extension
+- [x] Chrome Web Store release of the extension
 - [ ] Edge and Firefox versions of the extension
 - [ ] Adding midterms and due dates from a course outline
 
