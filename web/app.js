@@ -2,7 +2,7 @@
 // Rule used throughout: text from the schedule file is only ever shown with
 // textContent (never innerHTML), so it can't inject anything into the page.
 import { readSchedule, ScheduleReadError } from './parser.js';
-import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays, labPlan, labDays, possibleDays } from '../shared/ics.js?v=20261025';
+import { buildCalendar, courseColours, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays, labPlan, labDays, possibleDays } from '../shared/ics.js?v=20261102';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
 import { mountReportForm } from './report-form.js?v=20261018';
@@ -24,16 +24,14 @@ const state = {
   academicYear: LATEST_YEAR,
   terms: [],
   tab: 'fall',
-  colourOf: new Map(),
   lastDownload: null,  // what the last "finish" was: { mode: 'file' | 'link', include, alarmMinutes, ... }
   scheduleId: null,    // the saved schedule being worked on (signed-in users)
   scheduleName: null,
   saveResult: null,    // { ok, message } after saving to the account
   feed: null,          // { url, webcalUrl } once a calendar link exists
-  myNames: [],
+  myNames: [],         // names of the saved schedules, so a new one gets its own name
   month: null,         // the month the preview shows, 'YYYY-MM'
   monthDay: null,      // the day picked in it
-  monthColours: new Map(),         // names of the saved schedules, so a new one gets its own name
 };
 
 /* ================= helpers ================= */
@@ -70,8 +68,10 @@ function allowedView(wanted) {
 const VIEW_LABELS = { welcome: 'Sign in', app: 'Calendar app', schedule: 'Your schedule', customize: 'Customize', done: 'Add to calendar' };
 $('#page-date').textContent = new Date().toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
 
-function show(view, { push = true } = {}) {
+function show(view, { push = true, animate = true } = {}) {
   view = allowedView(view);
+  // Leaving the notebook for the cover (logo or Back): close the book first.
+  if (animate && view === 'cover' && !$('.notebook').hidden && motionOK()) return closeBook(() => show(view, { push, animate: false }));
   const onCover = view === 'cover';
   $('#view-cover').hidden = !onCover;
   $('.notebook').hidden = onCover;
@@ -244,12 +244,35 @@ if (isPhone) {
 /* ================= cover ================= */
 
 $('#cover-term').textContent = `Fall/Winter ${LATEST_YEAR.replace('-', '–')}`;
-$('#open-notebook').addEventListener('click', () => {
+// The cover turns on the rings (CSS: cover-flip), then the page under it grows
+// into the notebook with a view transition. Closing plays the same backwards.
+const coverWrap = $('#view-cover');
+const motionOK = () => !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const swapPages = update => (document.startViewTransition ? document.startViewTransition(update).finished : Promise.resolve(update()));
+const coverTurned = () => new Promise(done => {
   const book = $('#cover-book');
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return show('welcome');
-  book.classList.add('opening');  // the cover swings open
-  setTimeout(() => { book.classList.remove('opening'); show('welcome'); }, 650);
+  book.addEventListener('animationend', function end(event) {
+    if (event.target !== book || event.animationName !== 'cover-flip') return;
+    book.removeEventListener('animationend', end);
+    done();
+  });
 });
+
+$('#open-notebook').addEventListener('click', async () => {
+  if (!motionOK()) return show('welcome');
+  if (coverWrap.dataset.book === 'opening') return;
+  coverWrap.dataset.book = 'opening';
+  await coverTurned();
+  swapPages(() => { show('welcome'); coverWrap.dataset.book = 'shut'; });
+});
+
+function closeBook(update) {
+  // Starts open (the closing animation, paused on its first frame) while the notebook shrinks back to a page.
+  Object.assign(coverWrap.dataset, { book: 'closing', paused: '' });
+  const turned = coverTurned();
+  swapPages(update).finally(() => delete coverWrap.dataset.paused);
+  turned.then(() => { coverWrap.dataset.book = 'shut'; });
+}
 
 /* ================= theme (auto / light / dark) ================= */
 // "Auto" (the default) follows the device's own light/dark setting, live.
@@ -666,8 +689,6 @@ function renderWeek() {
     $('#day-list').replaceChildren(el('p', { className: 'week-empty', text: empty }));
     return;
   }
-  // Colours per term, so courses shown together never share one.
-  state.colourOf = new Map([...new Set(items.map(i => courseKey(i.course)))].map((key, n) => [key, n % COLOURS]));
   const days = DAY_ORDER.filter(d => ['M', 'Tu', 'W', 'Th', 'F'].includes(d) || items.some(i => i.day === d));
   const startHour = Math.floor(Math.min(...items.map(i => minutes(i.meeting.start))) / 60);
   const endHour = Math.ceil(Math.max(...items.map(i => minutes(i.meeting.end))) / 60);
@@ -686,12 +707,6 @@ function renderWeek() {
   }));
 
   let order = 0;
-  const colour = (node, course) => {
-    const c = state.colourOf.get(courseKey(course));
-    node.style.setProperty('--bg-c', `var(--c${c})`);
-    node.style.setProperty('--edge-c', `var(--e${c})`);
-    return node;
-  };
   // Six-week courses (Q/R/S/T) say which weeks, e.g. "Sep 9–Oct 28".
   const weeksOf = course => {
     const [period] = periodsFor(course.number, state.terms);
@@ -716,7 +731,7 @@ function renderWeek() {
   };
   const columns = days.map(day => el('div', { className: 'week-col' }, lanesFor(byDay(day)).map(({ course, meeting, lane, lanes }) => {
     const weeks = weeksOf(course);
-    const block = colour(el('div', { className: 'block', attrs: { title: `${courseKey(course)} ${course.component} · ${clock(meeting.start)}–${clock(meeting.end)} · ${meeting.room}${weeks ? ` · ${weeks} only` : ''}` } }, [
+    const block = paint(el('div', { className: 'block', attrs: { title: `${courseKey(course)} ${course.component} · ${clock(meeting.start)}–${clock(meeting.end)} · ${meeting.room}${weeks ? ` · ${weeks} only` : ''}` } }, [
       // Line 1: the course. Line 2: lecture/lab/tutorial and room (the time is
       // where the block sits). Six-week courses add which weeks.
       el('span', { className: 'block-code', text: courseKey(course) }),
@@ -740,7 +755,7 @@ function renderWeek() {
   // screen readers on every screen size (the timetable above is visual only).
   $('#day-list').replaceChildren(...days.filter(d => byDay(d).length).map(day => el('section', { className: 'day' }, [
     el('h4', { className: 'day-name', text: DAY_NAMES[day] }),
-    el('ul', {}, byDay(day).map(({ course, meeting }) => colour(el('li', { className: 'day-item' }, [
+    el('ul', {}, byDay(day).map(({ course, meeting }) => paint(el('li', { className: 'day-item' }, [
       el('span', { className: 'day-time', text: `${clock(meeting.start)} – ${clock(meeting.end)}${weeksOf(course) ? ` (${weeksOf(course)} only)` : ''}` }),
       el('span', { className: 'day-course', text: `${courseKey(course)} ${course.component}` }),
       el('span', { className: 'day-room', text: meeting.room || 'No room listed' }),
@@ -797,12 +812,11 @@ function classesIn(month) {
   return out;
 }
 
-function colourFor(course) {
-  if (!state.monthColours.has(courseKey(course))) state.monthColours.set(courseKey(course), state.monthColours.size % COLOURS);
-  return state.monthColours.get(courseKey(course));
-}
+// Worked out once per loaded schedule, so the week and month previews match.
+let colours = { courses: null, map: new Map() };
 const paint = (node, course) => {
-  const c = colourFor(course);
+  if (colours.courses !== state.courses) colours = { courses: state.courses, map: courseColours(state.courses, COLOURS) };
+  const c = colours.map.get(courseKey(course)) ?? 0;
   node.style.setProperty('--bg-c', `var(--c${c})`);
   node.style.setProperty('--edge-c', `var(--e${c})`);
   return node;
@@ -813,9 +827,6 @@ function renderMonth() {
   const { start, end, terms } = chosenRange();
   const today = localDate(new Date());
   const classes = classesIn(month);
-  // Same colours as long as the same courses are shown.
-  state.monthColours = new Map();
-  for (const course of state.courses) colourFor(course);
 
   $('#month-title').textContent = monthName(month);
   $('#month-prev').disabled = !start || month <= start.slice(0, 7);
@@ -1825,4 +1836,4 @@ api('/auth/providers').then(providers => {
 if (resetToken) openResetDialog(resetToken);
 if (signInError) show('welcome', { push: false });
 
-show(location.hash.slice(1) || 'cover', { push: false });
+show(location.hash.slice(1) || 'cover', { push: false, animate: false });

@@ -2,7 +2,7 @@
 // Uses made-up classes so no real schedule is ever committed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCalendar, seasonsFor, periodsFor, whyNotPlaced, meetingDays } from './ics.js';
+import { buildCalendar, courseColours, seasonsFor, periodsFor, whyNotPlaced, meetingDays } from './ics.js';
 
 const terms = [
   { season: 'fall', starts_on: '2026-09-09', ends_on: '2026-12-09',
@@ -204,4 +204,11 @@ test('lab days picked by hand', () => {
 test('a first date after the term ends adds nothing for that term', () => {
   const lab = { ...labClass, repeat: { every: 1, first: '2026-12-20', last: null } };
   assert.equal(buildCalendar({ courses: [lab], terms, include: 'fall' }).added.length, 0);
+});
+
+test('each course keeps one colour, and courses in the same term never share one', () => {
+  const c = (subject, number) => ({ subject, number });
+  // A winter-only course listed first used to take colour 0 in one preview but not the other.
+  const colours = courseColours([c('WIN', '1000B'), c('FAL', '1000A'), c('FAL', '1000A'), c('YR', '2000E'), c('FAL', '3000A')], 3);
+  assert.deepEqual(Object.fromEntries(colours), { 'WIN 1000B': 0, 'FAL 1000A': 0, 'YR 2000E': 1, 'FAL 3000A': 2 });
 });

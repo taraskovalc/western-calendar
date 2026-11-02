@@ -113,6 +113,23 @@ export function seasonsFor(courseNumber) {
   return SUFFIX_RUNS[suffixOf(courseNumber)] ?? [];
 }
 
+// One colour number (0 to count-1) per course ("SUBJ 1234A"), so every preview
+// shows a course in the same colour. Courses in the same term get different
+// colours while there are no more than `count` of them.
+export function courseColours(courses, count) {
+  const seasons = new Map();
+  for (const c of courses) {
+    const key = `${c.subject} ${c.number}`;
+    seasons.set(key, new Set([...(seasons.get(key) ?? []), ...seasonsFor(c.number)]));
+  }
+  const colours = new Map();
+  for (const [key, mine] of seasons) {
+    const taken = new Set([...colours].filter(([other]) => [...seasons.get(other)].some(s => mine.has(s))).map(([, c]) => c));
+    colours.set(key, [...Array(count).keys()].find(c => !taken.has(c)) ?? colours.size % count);
+  }
+  return colours;
+}
+
 // Why a course can't be placed in Fall/Winter, or null if it can.
 export function whyNotPlaced(courseNumber) {
   const letter = suffixOf(courseNumber);
