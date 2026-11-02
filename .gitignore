@@ -2,6 +2,9 @@
 .env
 # Installed packages (recreated by npm install)
 node_modules/
+# Browser test output (recreated by npm test)
+test-results/
+playwright-report/
 # Saved schedule pages contain personal info
 *.html
 !web/**/*.html

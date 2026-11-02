@@ -1,0 +1,11 @@
+{
+  "name": "slotted-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test shared/ics.test.js && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

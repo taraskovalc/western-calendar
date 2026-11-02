@@ -112,7 +112,8 @@ Linking Google to an existing account with the same (Google-verified) email remo
 ## Testing locally
 
 ```bash
-node --test shared/ics.test.js
+npm ci && npx playwright install chromium   # once
+npm test                            # calendar + parser tests, guest walkthrough (light, dark, phone)
 cp .env.example .env                # set ALLOWED_ORIGINS=http://localhost:8000, COOKIE_SECURE=false, PUBLIC_API_URL=http://localhost:3000
 docker compose up -d db api         # API on http://localhost:3000
 python3 -m http.server 8000         # from the project folder, then open http://localhost:8000/web/

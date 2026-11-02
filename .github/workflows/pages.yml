@@ -5,7 +5,7 @@ name: Publish Slotted
 on:
   push:
     branches: [main]
-    paths: ['web/**', 'shared/**', '.github/workflows/pages.yml']
+    paths: ['web/**', 'shared/**', 'tests/**', 'package*.json', 'playwright.config.js', '.github/workflows/pages.yml']
   workflow_dispatch:          # also adds a "Run workflow" button on GitHub
 
 permissions:
@@ -27,9 +27,13 @@ jobs:
         with:
           node-version: 22
 
-      # If the calendar tests fail, nothing gets published.
-      - name: Run the calendar tests
-        run: node --test shared/ics.test.js
+      # If any test fails, nothing gets published: calendar tests, parser
+      # tests, and a guest walkthrough in light, dark and phone size.
+      - name: Install the test browser
+        run: npm ci && npx playwright install --with-deps chromium
+
+      - name: Run the tests
+        run: npm test
 
       # Put the page and the shared code into one folder, laid out so that
       # app.js's "../shared/ics.js" import still works on the live site.
