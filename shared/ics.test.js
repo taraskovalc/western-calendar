@@ -2,7 +2,7 @@
 // Uses made-up classes so no real schedule is ever committed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCalendar, courseColours, seasonsFor, periodsFor, whyNotPlaced, meetingDays } from './ics.js';
+import { buildCalendar, courseColours, seasonsFor, periodsFor, whyNotPlaced, meetingDays, shiftDay } from './ics.js';
 
 const terms = [
   { season: 'fall', starts_on: '2026-09-09', ends_on: '2026-12-09',
@@ -20,6 +20,11 @@ const fallClass = {
 const winterClass = { ...fallClass, number: '2000B', meetings: [{ days: ['F'], start: '08:30', end: '10:30', room: 'NSC-1' }] };
 const onlineClass = { ...fallClass, number: '3000G', delivery: 'Online', meetings: [{ days: [], start: null, end: null }] };
 const fixedNow = new Date('2026-10-15T12:00:00Z');
+
+test('shiftDay moves across month and year ends', () => {
+  assert.equal(shiftDay('2026-09-30', 1), '2026-10-01');
+  assert.equal(shiftDay('2027-01-01', -1), '2026-12-31');
+});
 
 test('course letters map to the right terms', () => {
   assert.deepEqual(seasonsFor('1000A'), ['fall']);

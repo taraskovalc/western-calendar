@@ -6,9 +6,8 @@
 // The saved schedule file never leaves the browser: Slotted reads it here (the
 // same way the main page does) and sends only what it found, as plain text.
 import { api, ApiUnavailable } from './api.js';
-import { readSchedule } from './parser.js';
+import { readSchedule, findClassTable, clean, MAX_FILE_BYTES } from './parser.js?v=20261107';
 
-const MAX_FILE_BYTES = 2 * 1024 * 1024;  // a real saved page is about 70 KB
 const MAX_TABLE_TEXT = 12000;
 
 const STEPS = [
@@ -21,7 +20,6 @@ const STEPS = [
 ];
 
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const clean = text => text.replace(/\s+/g, ' ').trim();
 
 /* ---------- Device: added automatically, shown in the note under Send ---------- */
 function describeDevice() {
@@ -48,8 +46,7 @@ const fmt = t => {
 // Only the table: not the rest of the page.
 function classTableText(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  const table = [...doc.querySelectorAll('table')].find(t =>
-    t.rows[0] && [...t.rows[0].cells].some(c => !c.querySelector('table') && clean(c.textContent).includes('Days/Times/Location')));
+  const table = findClassTable(doc);
   if (!table) return '';
   // table.rows only holds this table's own rows; a cell's inner table (a class
   // that meets more than once) is joined into that one cell with " / ".

@@ -1,18 +1,16 @@
 // Slotted: a four-page flow that runs in the browser.
 // Rule used throughout: text from the schedule file is only ever shown with
 // textContent (never innerHTML), so it can't inject anything into the page.
-import { readSchedule, ScheduleReadError } from './parser.js';
-import { buildCalendar, courseColours, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays, labPlan, labDays, possibleDays } from '../shared/ics.js?v=20261102';
+import { readSchedule, ScheduleReadError, MAX_FILE_BYTES } from './parser.js?v=20261107';
+import { buildCalendar, courseColours, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays, labPlan, labDays, possibleDays, shiftDay } from '../shared/ics.js?v=20261107';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
-import { mountReportForm } from './report-form.js?v=20261018';
+import { mountReportForm } from './report-form.js?v=20261107';
 import { applyTheme, cacheTheme, currentTheme, initThemeSwitch } from './theme.js?v=20261106';
 
-const MAX_FILE_BYTES = 2 * 1024 * 1024;  // real schedule pages are ~70 KB
 const VIEWS = ['cover', 'welcome', 'app', 'schedule', 'customize', 'done'];
 const DAY_ORDER = ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'];
 const DAY_NAMES = { M: 'Mon', Tu: 'Tue', W: 'Wed', Th: 'Thu', F: 'Fri', Sa: 'Sat', Su: 'Sun' };
-const DAY_INDEX = { Su: 0, M: 1, Tu: 2, W: 3, Th: 4, F: 5, Sa: 6 };
 const COLOURS = 8;
 
 const $ = selector => document.querySelector(selector);
@@ -53,6 +51,8 @@ const localDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).p
 const shortDate = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const longDate = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const courseKey = c => `${c.subject} ${c.number}`;
+// A small labelled number ("Courses 3") in the stat rows.
+const stat = (label, value, extra = '') => el('span', { className: `lab-stat${extra}` }, [el('small', { text: label }), el('b', { text: value })]);
 const chosen = name => document.querySelector(`input[name="${name}"]:checked`)?.value ?? null;
 
 /* ================= pages ================= */
@@ -611,7 +611,6 @@ function renderCheck(notes) {
 
 // What the file has, at a glance: courses, class times, labs, not added.
 function renderFoundStats(timed, notAdded) {
-  const stat = (label, value, extra = '') => el('span', { className: `lab-stat${extra}` }, [el('small', { text: label }), el('b', { text: value })]);
   const terms = new Set(timed.flatMap(c => seasonsFor(c.number)));
   const labs = timed.filter(c => isLabPart(c.component)).length;
   $('#found-stats').replaceChildren(
@@ -889,11 +888,10 @@ function renderPreview() {
 function daysOff(term) {
   const days = [...(term.no_class_dates ?? [])].sort();
   if (!days.length) return [];
-  const nextDay = iso => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
   const groups = [];
   for (const day of days) {
     const last = groups.at(-1);
-    if (last && nextDay(last.end) === day) last.end = day; else groups.push({ start: day, end: day });
+    if (last && shiftDay(last.end, 1) === day) last.end = day; else groups.push({ start: day, end: day });
   }
   const parts = groups.map(({ start, end }) => {
     const when = start === end ? longDate(start)
@@ -947,27 +945,20 @@ function labBounds(course) {
   const sorted = days.map(d => d.iso).sort();
   return { first: sorted[0], last: sorted.at(-1) };
 }
-function labCount(course) {
-  return labTerms(course).reduce((n, term) =>
-    n + course.meetings.filter(m => m.start && m.days.length)
-      .reduce((k, m) => k + meetingDays(course, m, term).filter(d => !d.off).length, 0), 0);
-}
 
 // Everything about one lab's days in the chosen term(s): the days it happens,
 // the days off that pushed later ones back, and whether they were picked by hand.
 function labInfo(course) {
   const days = [];
   const pushed = [];
-  let lost = 0;
   for (const term of labTerms(course)) {
     for (const m of course.meetings.filter(m => m.start && m.days.length)) {
       const plan = labPlan(course, m, term);
       days.push(...plan.days);
       pushed.push(...plan.pushed);
-      lost += plan.lost;
     }
   }
-  return { days: [...new Set(days)].sort(), pushed: [...new Set(pushed)].sort(), lost, byHand: Array.isArray(course.repeat?.dates) };
+  return { days: [...new Set(days)].sort(), pushed: [...new Set(pushed)].sort(), byHand: Array.isArray(course.repeat?.dates) };
 }
 
 
@@ -1024,7 +1015,6 @@ function renderLabOptions() {
       backToPattern.hidden = !byHand;
       pick.textContent = byHand ? 'Change the days' : `See every ${word} day, or pick them yourself`;
       count.classList.remove('warn');
-      const stat = (label, value, extra = '') => el('span', { className: `lab-stat${extra}` }, [el('small', { text: label }), el('b', { text: value })]);
       count.replaceChildren(...(days.length ? [
         stat('Total', plural(days.length, word)),
         stat('First', longDate(days[0])),
@@ -1077,9 +1067,7 @@ function offReason(term, iso) {
   let day = iso;
   for (;;) {
     if (term.labels?.[day]) return term.labels[day];
-    const d = new Date(`${day}T12:00:00Z`);
-    d.setUTCDate(d.getUTCDate() - 1);
-    const before = d.toISOString().slice(0, 10);
+    const before = shiftDay(day, -1);
     if (!off.has(before)) return null;
     day = before;
   }
@@ -1248,7 +1236,6 @@ function renderFinish() {
   const include = chosenTerms();
   const parts = chosen('parts') ?? 'all';
   const { total } = summarize(include, parts);
-  const stat = (label, value, extra = '') => el('span', { className: `lab-stat${extra}` }, [el('small', { text: label }), el('b', { text: value })]);
   const colour = pickedColour();
   $('#finish-lede').textContent = state.user
     ? `Get a calendar link for ${APP_NAMES[state.app]} that keeps itself up to date, or download a file.`
@@ -1684,8 +1671,7 @@ $('#delete-form').addEventListener('submit', async event => {
   try {
     await api('/auth/account', { method: 'DELETE', body: state.user.hasPassword === false ? {} : { password } });
     $('#dialog-account').close();
-    signedOut();
-    resetSchedulePage();
+    signedOut();  // also empties the schedule page
     state.started = false;
     welcomeMessage('Your account and everything saved in it has been deleted.');
     show('welcome');

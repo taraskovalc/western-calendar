@@ -10,7 +10,8 @@ const ROMAN = /^(I|II|III|IV|V|VI|VII|VIII|IX|X)$/;
 
 export class ScheduleReadError extends Error {}
 
-const clean = text => text.replace(/\s+/g, ' ').trim();
+export const MAX_FILE_BYTES = 2 * 1024 * 1024;  // real schedule pages are ~70 KB
+export const clean = text => text.replace(/\s+/g, ' ').trim();
 const cellText = cell => clean(cell.textContent);
 const clip = (text, max) => text.slice(0, max);
 
@@ -31,7 +32,7 @@ function titleCase(text) {
 }
 
 // The class list is the table whose header has a "Days/Times/Location" column.
-function findClassTable(doc) {
+export function findClassTable(doc) {
   return [...doc.querySelectorAll('table')].find(table => {
     const header = table.rows[0];
     return header && [...header.cells].some(c => !c.querySelector('table') && cellText(c).includes('Days/Times/Location'));

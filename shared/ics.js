@@ -177,6 +177,8 @@ export function partIncluded(component, parts = 'all') {
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const isoOf = date => date.toISOString().slice(0, 10);
+// '2026-09-30', -1 -> '2026-09-29'
+export const shiftDay = (iso, n) => isoOf(addDays(toDate(iso), n));
 // Monday of the week a date is in (calendar apps count "every other week"
 // in Monday-to-Sunday weeks, so we do too).
 const mondayOf = date => addDays(date, -((date.getUTCDay() + 6) % 7));
