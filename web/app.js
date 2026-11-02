@@ -6,6 +6,7 @@ import { buildCalendar, courseColours, seasonsFor, periodsFor, whyNotPlaced, isL
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
 import { mountReportForm } from './report-form.js?v=20261018';
+import { applyTheme, cacheTheme, currentTheme, initThemeSwitch } from './theme.js?v=20261106';
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;  // real schedule pages are ~70 KB
 const VIEWS = ['cover', 'welcome', 'app', 'schedule', 'customize', 'done'];
@@ -274,56 +275,12 @@ function closeBook(update) {
   turned.then(() => { coverWrap.dataset.book = 'shut'; });
 }
 
-/* ================= theme (auto / light / dark) ================= */
-// "Auto" (the default) follows the device's own light/dark setting, live.
-// A choice is remembered in this browser; signed-in users also keep it in
-// their account, so it follows them to other devices.
-const THEME_KEY = 'slotted-theme';
-const THEMES = ['auto', 'light', 'dark'];
-const systemDark = matchMedia('(prefers-color-scheme: dark)');
-function cachedTheme() {
-  try { return localStorage.getItem(THEME_KEY); } catch { return null; }  // storage blocked
-}
-let themeChoice = THEMES.includes(cachedTheme()) ? cachedTheme() : 'auto';
-const currentTheme = () => themeChoice;
-
-function applyTheme(choice) {
-  themeChoice = THEMES.includes(choice) ? choice : 'auto';
-  const dark = themeChoice === 'dark' || (themeChoice === 'auto' && systemDark.matches);
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
-  document.querySelectorAll('[data-theme-choice]').forEach(button => {
-    button.setAttribute('aria-checked', String(button.dataset.themeChoice === themeChoice));
-    button.tabIndex = button.dataset.themeChoice === themeChoice ? 0 : -1;
-  });
-}
-function cacheTheme(choice) {
-  try { if (choice) localStorage.setItem(THEME_KEY, choice); else localStorage.removeItem(THEME_KEY); } catch { /* storage blocked */ }
-}
-function chooseTheme(choice) {
-  applyTheme(choice);
-  cacheTheme(themeChoice);
-  if (state.user) {
-    state.user.theme = themeChoice;
-    api('/auth/me', { method: 'PATCH', body: { theme: themeChoice } }).catch(() => {});
-  }
-}
-const themeButtons = [...document.querySelectorAll('[data-theme-choice]')];
-themeButtons.forEach((button, i) => {
-  button.addEventListener('click', () => chooseTheme(button.dataset.themeChoice));
-  // Arrow keys move between the three choices, like any radio group.
-  button.addEventListener('keydown', event => {
-    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
-    if (!step) return;
-    event.preventDefault();
-    const next = themeButtons[(i + step + themeButtons.length) % themeButtons.length];
-    chooseTheme(next.dataset.themeChoice);
-    next.focus();
-  });
+/* ================= theme ================= */
+initThemeSwitch(choice => {
+  if (!state.user) return;
+  state.user.theme = choice;
+  api('/auth/me', { method: 'PATCH', body: { theme: choice } }).catch(() => {});
 });
-// In Auto, switch the moment the device does (for example at sunset).
-systemDark.addEventListener('change', () => { if (themeChoice === 'auto') applyTheme('auto'); });
-applyTheme(themeChoice);
 
 /* ================= 1. welcome & accounts ================= */
 

@@ -478,16 +478,17 @@ body { background: var(--wood); background-color: var(--desk); }
   background: var(--paper); border: 1.5px solid var(--line); border-radius: 999px;
   box-shadow: 0 2px 6px rgb(0 0 0 / 18%);
 }
-.theme-switch button {
+.theme-switch label {
   display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-  font: 600 13px/1 var(--sans); color: var(--muted); background: none;
-  border: 0; border-radius: 999px; padding: 6px 10px;
+  font: 600 13px/1 var(--sans); color: var(--muted);
+  border-radius: 999px; padding: 6px 10px;
   transition: background-color .15s, color .15s;
 }
-.theme-switch button:hover { color: var(--ink); }
-.theme-switch button[aria-checked="true"] { color: var(--ink); background: var(--highlight); box-shadow: 0 0 0 1.5px var(--ink); }
-[data-theme="dark"] .theme-switch button[aria-checked="true"] { color: #1f2723; }
-.theme-switch button:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.theme-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }  /* the label is the visible button */
+.theme-switch label:hover { color: var(--ink); }
+.theme-switch label:has(:checked) { color: var(--ink); background: var(--highlight); box-shadow: 0 0 0 1.5px var(--ink); }
+[data-theme="dark"] .theme-switch label:has(:checked) { color: #1f2723; }
+.theme-switch label:has(:focus-visible) { outline: 3px solid var(--accent); outline-offset: 1px; }
 .theme-switch svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* calendar colour: swatches (Apple + link) or short how-to steps */
@@ -645,8 +646,8 @@ body { background: var(--wood); background-color: var(--desk); }
 
 @media (max-width: 760px) {
   .topbar-right { gap: 10px; }
-  .theme-switch span { display: none; }
-  .theme-switch button { padding: 6px 7px; }
+  .theme-switch span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }  /* hidden, but still names the radio */
+  .theme-switch label { padding: 6px 7px; }
   .notebook::before, .cover-rings::before { left: -14px; transform: scale(.8); transform-origin: left top; height: calc(100% - 44px); bottom: auto; }
   .cover-book { padding: 40px 24px 30px 36px; }
   .cover-label { margin-right: 18px; padding: 24px 16px 20px; }
