@@ -59,7 +59,7 @@ services:
   # Visitors to https://api.taraskoval.ca reach the API through it, so no router
   # ports are opened and your home IP address stays hidden.
   tunnel:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.10.1   # pinned; update on purpose, not by surprise
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:

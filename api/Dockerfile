@@ -6,10 +6,11 @@ FROM node:22-alpine
 # '../../shared/ics.js' work identically on your Mac and in the container.
 WORKDIR /app/api
 
-# Copy package.json first and install. Docker caches this step, so rebuilding
-# after a code change doesn't reinstall every package.
-COPY api/package.json ./
-RUN npm install --omit=dev
+# Copy package.json and the lockfile first, and install exactly the locked
+# versions (npm ci). Docker caches this step, so rebuilding after a code
+# change doesn't reinstall every package.
+COPY api/package.json api/package-lock.json ./
+RUN npm ci --omit=dev
 
 # Then copy our code.
 COPY api/src ./src
