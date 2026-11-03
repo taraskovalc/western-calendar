@@ -37,9 +37,9 @@
       flex: none; border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer;
       background: #2a2420; color: #fffaf0; font: 600 14px/1 inherit; font-family: inherit;
     }
-    button.send:hover { background: #c9562e; }
+    button.send:hover { background: #bd4f2a; }
     button.send:disabled { opacity: .7; cursor: default; }
-    button:focus-visible { outline: 3px solid #c9562e; outline-offset: 2px; }
+    button:focus-visible { outline: 3px solid #bd4f2a; outline-offset: 2px; }
     button.hide {
       position: absolute; top: -9px; right: -9px; width: 22px; height: 22px; border-radius: 50%; padding: 0;
       border: 1.5px solid #e4d8c3; background: #fffaf0; color: #74685c; font: 14px/1 inherit; cursor: pointer;

@@ -10,12 +10,18 @@
 const SLOTTED = 'https://slotted.taraskoval.ca/';
 const MAX_AGE = 5 * 60 * 1000;  // an unclaimed schedule is thrown away after 5 minutes
 
+const SCHEDULE_PAGE = 'https://draftmyschedule.uwo.ca/secure/current_timetable.cfm';
+
 chrome.runtime.onMessage.addListener((message, sender, reply) => {
-  if (message?.type === 'send' && typeof message.html === 'string') {
+  // Only this extension's own scripts can message it, but check which page
+  // each one runs on anyway: "send" only from My Current Schedule, "collect"
+  // only from Slotted, and only from the tab itself (not a frame inside it).
+  if (sender.id !== chrome.runtime.id || sender.frameId !== 0) return false;
+  if (message?.type === 'send' && typeof message.html === 'string' && sender.url?.startsWith(SCHEDULE_PAGE)) {
     send(message.html, sender.tab).then(reply, () => reply({ ok: false }));
     return true;  // reply comes later
   }
-  if (message?.type === 'collect' && typeof message.key === 'string') {
+  if (message?.type === 'collect' && typeof message.key === 'string' && sender.origin === new URL(SLOTTED).origin) {
     collect(message.key).then(reply, () => reply(null));
     return true;
   }
@@ -46,12 +52,11 @@ async function forgetOld() {
 // Clicking the toolbar icon: on My Current Schedule, send it. Anywhere else
 // (another DraftMySchedule page or another website), open My Current Schedule.
 // DraftMySchedule asks the student to sign in first if they aren't.
-const CURRENT_SCHEDULE = 'https://draftmyschedule.uwo.ca/secure/current_timetable.cfm';
 chrome.action.onClicked.addListener(async tab => {
   try {
     await chrome.tabs.sendMessage(tab.id, { type: 'icon-clicked' });
   } catch {
     // Not the My Current Schedule page (the extension only runs there).
-    chrome.tabs.create({ url: CURRENT_SCHEDULE, index: tab.index + 1 });
+    chrome.tabs.create({ url: SCHEDULE_PAGE, index: tab.index + 1 });
   }
 });
