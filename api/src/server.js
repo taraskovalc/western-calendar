@@ -47,6 +47,19 @@ app.get('/', (req, res) => {
   res.json({ message: 'Hello from the Western Calendar API' });
 });
 
+// GET /.well-known/security.txt  ->  how to report a security problem (RFC 9116).
+// Same as web/.well-known/security.txt, except the Canonical line.
+app.get('/.well-known/security.txt', (req, res) => {
+  res.type('text/plain').send([
+    'Contact: mailto:slotted@taraskoval.ca',
+    'Contact: https://github.com/taraskovalc/western-calendar/security/advisories/new',
+    'Expires: 2027-11-01T00:00:00.000Z',
+    'Preferred-Languages: en',
+    'Canonical: https://api.taraskoval.ca/.well-known/security.txt',
+    'Policy: https://github.com/taraskovalc/western-calendar/blob/main/SECURITY.md',
+  ].join('\n') + '\n');
+});
+
 // GET /health  ->  proves the API can reach the database.
 app.get('/health', async (req, res) => {
   try {
