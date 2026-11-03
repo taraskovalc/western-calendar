@@ -39,12 +39,19 @@ export function findClassTable(doc) {
   });
 }
 
+// Trusted Types (in the site's CSP) stop text from becoming HTML unless a named
+// policy allows it. This policy only feeds DOMParser, which builds a separate
+// document that is never shown and never runs scripts. Read text from it;
+// never move its elements into the page.
+const inert = globalThis.trustedTypes?.createPolicy('slotted-parse', { createHTML: html => html });
+export const parseHtml = html => new DOMParser().parseFromString(inert ? inert.createHTML(html) : html, 'text/html');
+
 /**
  * @param {string} html  the saved page's text
  * @returns {{ courses: object[], academicYear: string|null, notes: string[] }}
  */
 export function readSchedule(html) {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const doc = parseHtml(html);
   const table = findClassTable(doc);
   if (!table) {
     throw new ScheduleReadError("This file doesn't contain a DraftMySchedule class list.");

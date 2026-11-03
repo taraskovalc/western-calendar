@@ -55,5 +55,22 @@ test('privacy and report pages load under the CSP', async ({ page, baseURL }) =>
     await expect(page.locator('h1')).toBeVisible();
   }
   await expect(page.locator('form.report-form')).toBeVisible();
+  // The report form reads an attached schedule file and lists what it found.
+  const preview = page.locator('.file-preview');
+  await page.setInputFiles('input[name="file"]', { name: 'My Current Schedule.html', mimeType: 'text/html', buffer: Buffer.from(schedulePage()) });
+  await expect(preview).toContainText('Slotted read');
+  await expect(preview.locator('li')).not.toHaveCount(0);
+  await page.setInputFiles('input[name="file"]', { name: 'other.html', mimeType: 'text/html', buffer: Buffer.from('<p>not a schedule</p>') });
+  await expect(preview).toContainText("Slotted couldn't read this file:");
+  await preview.getByRole('button', { name: 'Remove it' }).click();
+  await expect(preview).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('a message from the Chrome extension shows its note', async ({ page, baseURL }) => {
+  const errors = await localSiteWithCsp(page, baseURL);
+  await page.goto('/web/index.html');
+  await page.evaluate(() => postMessage({ source: 'slotted-extension', type: 'expired' }, location.origin));
+  await expect(page.locator('#extension-note b')).toHaveText('Send to Slotted');
   expect(errors).toEqual([]);
 });

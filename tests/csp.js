@@ -13,6 +13,10 @@ export const CSP = [
   "base-uri 'none'",
   "form-action 'self'",
   "object-src 'none'",
+  // Trusted Types: text can't become HTML or a script address except through
+  // these two named policies (web/parser.js and the beacon in web/app.js).
+  "require-trusted-types-for 'script'",
+  'trusted-types slotted-parse slotted-beacon',
 ].join('; ');
 
 // Serves only the local site, with the CSP header added to every page, so the

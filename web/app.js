@@ -1,11 +1,11 @@
 // Slotted: a four-page flow that runs in the browser.
 // Rule used throughout: text from the schedule file is only ever shown with
 // textContent (never innerHTML), so it can't inject anything into the page.
-import { readSchedule, ScheduleReadError, MAX_FILE_BYTES } from './parser.js?v=20261107';
+import { readSchedule, ScheduleReadError, MAX_FILE_BYTES } from './parser.js?v=20261109';
 import { buildCalendar, courseColours, seasonsFor, periodsFor, whyNotPlaced, isLabPart, partIncluded, meetingDays, labPlan, labDays, possibleDays, shiftDay } from '../shared/ics.js?v=20261107';
 import { TERM_DATES, LATEST_YEAR } from '../shared/terms.js';
 import { api, API_URL, ApiUnavailable } from './api.js';
-import { mountReportForm } from './report-form.js?v=20261107';
+import { mountReportForm, h } from './report-form.js?v=20261109';
 import { applyTheme, cacheTheme, currentTheme, initThemeSwitch } from './theme.js?v=20261106';
 
 const VIEWS = ['cover', 'welcome', 'app', 'schedule', 'customize', 'done'];
@@ -147,22 +147,22 @@ window.addEventListener('message', event => {
     history.replaceState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}${location.hash}`);
   }
   if (type === 'expired') {
-    extensionNote('This tab was already used. To send your schedule again, click <b>Send to Slotted</b> on DraftMySchedule.', true);
+    extensionNote(['This tab was already used. To send your schedule again, click ', h('b', {}, 'Send to Slotted'), ' on DraftMySchedule.'], true);
     if (!$('#view-cover').hidden) show('welcome');
     return;
   }
   if (type !== 'schedule' || typeof html !== 'string' || !html || html.length > MAX_FILE_BYTES) return;
   fromExtension = html;
   if (!$('#view-schedule').hidden) { loadFromExtension(); return; }
-  extensionNote('<b>Your schedule is here from DraftMySchedule.</b> Sign in or continue as a guest, choose your calendar app, and your classes are already filled in.');
+  extensionNote([h('b', {}, 'Your schedule is here from DraftMySchedule.'), ' Sign in or continue as a guest, choose your calendar app, and your classes are already filled in.']);
   if (!$('#view-cover').hidden) show('welcome');
 });
 // Tell the extension this page is listening.
 window.postMessage({ source: 'slotted-page', type: 'ready' }, location.origin);
 
-function extensionNote(html, warn = false) {
+function extensionNote(parts, warn = false) {
   const note = $('#extension-note');
-  note.innerHTML = html;
+  note.replaceChildren(...parts);
   note.classList.toggle('warn', warn);
   note.hidden = false;
 }
@@ -223,7 +223,11 @@ function statsOptedOut() {
 if (CF_ANALYTICS_TOKEN && location.hostname === 'slotted.taraskoval.ca' && !statsOptedOut()) {
   const beacon = document.createElement('script');
   beacon.defer = true;
-  beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+  // Trusted Types (in the site's CSP): a script's address must come from a named
+  // policy. This one can only ever give the beacon's address.
+  const BEACON = 'https://static.cloudflareinsights.com/beacon.min.js';
+  const policy = window.trustedTypes?.createPolicy('slotted-beacon', { createScriptURL: () => BEACON });
+  beacon.src = policy?.createScriptURL(BEACON) ?? BEACON;
   beacon.dataset.cfBeacon = JSON.stringify({ token: CF_ANALYTICS_TOKEN });
   document.head.append(beacon);
 }
@@ -1629,12 +1633,9 @@ document.querySelectorAll('[data-open="privacy"]').forEach(button => button.addE
 document.querySelectorAll('[data-open="report"]').forEach(button => button.addEventListener('click', () => {
   document.querySelectorAll('dialog[open]').forEach(d => d.close());
   const dialog = $('#dialog-report');
-  mountReportForm($('#report-root'), {
-    step: button.dataset.step ?? '',
-    buttonClass: 'button-ink',
-    doneHtml: '<p><button type="button" class="button-plain" data-report-done>Back to Slotted</button></p>',
-    onDone: () => dialog.close(),
-  });
+  const back = h('button', { type: 'button', className: 'button-plain' }, 'Back to Slotted');
+  back.addEventListener('click', () => dialog.close());
+  mountReportForm($('#report-root'), { step: button.dataset.step ?? '', buttonClass: 'button-ink', done: h('p', {}, back) });
   dialog.showModal();
   dialog.querySelector('textarea').focus();
 }));

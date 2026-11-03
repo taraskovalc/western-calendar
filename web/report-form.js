@@ -6,7 +6,7 @@
 // The saved schedule file never leaves the browser: Slotted reads it here (the
 // same way the main page does) and sends only what it found, as plain text.
 import { api, ApiUnavailable } from './api.js';
-import { readSchedule, findClassTable, clean, MAX_FILE_BYTES } from './parser.js?v=20261107';
+import { readSchedule, findClassTable, clean, parseHtml, MAX_FILE_BYTES } from './parser.js?v=20261109';
 
 const MAX_TABLE_TEXT = 12000;
 
@@ -19,7 +19,17 @@ const STEPS = [
   ['other', 'Something else'],
 ];
 
-const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Builds an element without HTML text (the site's CSP forbids innerHTML).
+// Keys that are element properties (className, checked…) are set as properties,
+// the rest (aria-*) as attributes. Strings among the children become plain text.
+export function h(tag, attrs = {}, ...children) {
+  const el = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key in el) el[key] = value; else el.setAttribute(key, value);
+  }
+  el.append(...children);
+  return el;
+}
 
 /* ---------- Device: added automatically, shown in the note under Send ---------- */
 function describeDevice() {
@@ -45,8 +55,7 @@ const fmt = t => {
 // The text of the class list table, one row per line, cells separated by " | ".
 // Only the table: not the rest of the page.
 function classTableText(html) {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const table = findClassTable(doc);
+  const table = findClassTable(parseHtml(html));
   if (!table) return '';
   // table.rows only holds this table's own rows; a cell's inner table (a class
   // that meets more than once) is joined into that one cell with " / ".
@@ -71,70 +80,52 @@ function classTableText(html) {
  * @param {object} options
  * @param {string} [options.step]         pre-pick "Where did it happen?"
  * @param {string} [options.buttonClass]  class for the Send button
- * @param {string} [options.doneHtml]     what to show under "Thanks, it's sent."
- * @param {() => void} [options.onDone]   called by an element marked [data-report-done]
+ * @param {Node|string} [options.done]   what to show under "Thanks, it's sent."
  */
-export function mountReportForm(root, { step = '', buttonClass = 'button', doneHtml = '', onDone } = {}) {
+export function mountReportForm(root, { step = '', buttonClass = 'button', done = '' } = {}) {
   const device = describeDevice();
-  root.innerHTML = `
-    <form class="report-form" novalidate>
-      <label><span>What went wrong?</span>
-        <span class="hint">For example: "My Tuesday lab is missing" or "The download button does nothing."</span>
-        <textarea name="message" required minlength="10" maxlength="5000"></textarea>
-      </label>
+  const hint = text => h('span', { className: 'hint' }, text);
+  const form = h('form', { className: 'report-form', noValidate: true },
+    h('label', {}, h('span', {}, 'What went wrong?'),
+      hint('For example: "My Tuesday lab is missing" or "The download button does nothing."'),
+      h('textarea', { name: 'message', required: true, minLength: 10, maxLength: 5000 })),
+    h('fieldset', { className: 'step-choices' },
+      h('legend', {}, 'Where did it happen? ', hint('(optional)')),
+      h('div', { className: 'pills' }, ...STEPS.map(([value, label]) =>
+        h('label', { className: 'pill' }, h('input', { type: 'radio', name: 'step', value, checked: value === step }), h('span', {}, label))))),
+    h('label', {}, h('span', {}, 'Your email ', hint("(optional, only if you'd like a reply)")),
+      h('input', { type: 'email', name: 'email', autocomplete: 'email', maxLength: 254 })),
+    h('div', { className: 'file-field' },
+      h('label', {}, h('span', {}, 'Your saved schedule file ', hint('(optional)')),
+        hint('Helps the most when a class is missing or wrong. Your file never leaves this page: Slotted reads it here and sends me only the class list it found, as plain text.'),
+        h('input', { type: 'file', name: 'file', accept: '.html,.htm,text/html' })),
+      h('div', { className: 'file-preview', hidden: true })),
+    // Left empty by people; bots fill it in.
+    h('div', { className: 'trap', 'aria-hidden': 'true' },
+      h('label', {}, 'Website ', h('input', { type: 'text', name: 'website', tabIndex: -1, autocomplete: 'off' }))),
+    h('p', { className: 'status', role: 'status', 'aria-live': 'polite' }),
+    h('div', { className: 'send-row' },
+      h('button', { type: 'submit', className: buttonClass }, 'Send report'),
+      h('p', { className: 'hint auto-note' }, `Your browser and device type (like ${device.short}) are added automatically, so I can try it the same way.`)));
+  root.replaceChildren(form,
+    h('div', { className: 'sent', hidden: true, tabIndex: -1 }, h('h2', {}, "Thanks, it's sent."), h('p', { className: 'sent-text' }), done));
 
-      <fieldset class="step-choices">
-        <legend>Where did it happen? <span class="hint">(optional)</span></legend>
-        <div class="pills">
-          ${STEPS.map(([value, label]) => `<label class="pill"><input type="radio" name="step" value="${value}"${value === step ? ' checked' : ''}><span>${label}</span></label>`).join('')}
-        </div>
-      </fieldset>
-
-      <label><span>Your email <span class="hint">(optional, only if you'd like a reply)</span></span>
-        <input type="email" name="email" autocomplete="email" maxlength="254">
-      </label>
-
-      <div class="file-field">
-        <label><span>Your saved schedule file <span class="hint">(optional)</span></span>
-          <span class="hint">Helps the most when a class is missing or wrong. Your file never leaves this page: Slotted reads it here and sends me only the class list it found, as plain text.</span>
-          <input type="file" name="file" accept=".html,.htm,text/html">
-        </label>
-        <div class="file-preview" hidden></div>
-      </div>
-
-      <!-- Left empty by people; bots fill it in. -->
-      <div class="trap" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-
-      <p class="status" role="status" aria-live="polite"></p>
-      <div class="send-row">
-        <button type="submit" class="${buttonClass}">Send report</button>
-        <p class="hint auto-note">Your browser and device type (like ${escapeHtml(device.short)}) are added automatically, so I can try it the same way.</p>
-      </div>
-    </form>
-    <div class="sent" hidden tabindex="-1">
-      <h2>Thanks, it's sent.</h2>
-      <p class="sent-text"></p>
-      ${doneHtml}
-    </div>`;
-
-  const form = root.querySelector('form');
   const status = root.querySelector('.status');
   const send = form.querySelector('button[type="submit"]');
   const preview = root.querySelector('.file-preview');
   let schedule = null;  // what gets sent for the schedule file, or null
-
-  root.querySelector('[data-report-done]')?.addEventListener('click', () => onDone?.());
 
   const setStatus = (text, error = false) => {
     status.textContent = text;
     status.classList.toggle('error', error);
   };
 
-  function showPreview(html, bad = false) {
-    preview.innerHTML = html;
+  function showPreview(content, bad = false) {
+    const remove = h('button', { type: 'button' }, 'Remove it');
+    remove.addEventListener('click', clearFile);
+    preview.replaceChildren(...content, ' ', remove);
     preview.classList.toggle('bad', bad);
     preview.hidden = false;
-    preview.querySelector('[data-remove]')?.addEventListener('click', clearFile);
   }
   function clearFile() {
     form.elements.file.value = '';
@@ -147,7 +138,7 @@ export function mountReportForm(root, { step = '', buttonClass = 'button', doneH
     schedule = null;
     if (!file) { preview.hidden = true; return; }
     if (file.size > MAX_FILE_BYTES) {
-      showPreview('That file is too large to be a saved schedule page. <button type="button" data-remove>Remove it</button>', true);
+      showPreview(['That file is too large to be a saved schedule page.'], true);
       return;
     }
     const html = await file.text();
@@ -164,10 +155,17 @@ export function mountReportForm(root, { step = '', buttonClass = 'button', doneH
       }))).slice(0, 60);
       schedule = { read: true, year: academicYear ?? '', notes: notes.slice(0, 10), rows, table };
       const names = [...new Set(rows.map(r => `${r.course} ${r.type}`))];
-      showPreview(`<b>Slotted read ${names.length} ${names.length === 1 ? 'class' : 'classes'} from this file.</b> This list is what I'll get, not the file: <ul>${names.slice(0, 12).map(n => `<li>${escapeHtml(n)}</li>`).join('')}${names.length > 12 ? '<li>…</li>' : ''}</ul> <button type="button" data-remove>Remove it</button>`);
+      showPreview([
+        h('b', {}, `Slotted read ${names.length} ${names.length === 1 ? 'class' : 'classes'} from this file.`),
+        " This list is what I'll get, not the file: ",
+        h('ul', {}, ...names.slice(0, 12).map(n => h('li', {}, n)), ...(names.length > 12 ? [h('li', {}, '…')] : [])),
+      ]);
     } catch (err) {
       schedule = { read: false, error: String(err.message).slice(0, 300), table };
-      showPreview(`<b>Slotted couldn't read this file:</b> ${escapeHtml(err.message)} I'll get that message${table ? ' and the text of the class list' : ''}, which helps me fix it. <button type="button" data-remove>Remove it</button>`, true);
+      showPreview([
+        h('b', {}, "Slotted couldn't read this file:"),
+        ` ${err.message} I'll get that message${table ? ' and the text of the class list' : ''}, which helps me fix it.`,
+      ], true);
     }
   });
 
