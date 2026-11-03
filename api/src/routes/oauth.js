@@ -14,7 +14,9 @@
 import crypto from 'node:crypto';
 import express from 'express';
 import { pool } from '../db.js';
+import { rateLimit } from 'express-rate-limit';
 import { regenerateSession } from '../session.js';
+import { ipKey } from './auth.js';
 
 export const oauthRouter = express.Router();
 
@@ -45,8 +47,19 @@ oauthRouter.get('/providers', (req, res) => {
 const backToSite = (res, error, linksOff) =>
   res.redirect(error ? `${SITE_URL}/?signin_error=${encodeURIComponent(error)}#welcome` : `${SITE_URL}/?signed_in=1${linksOff ? '&links_off=1' : ''}#app`);
 
+// Max 100 sign-in starts per 15 minutes from one address (IPv6: one /56). Generous for a
+// campus network; it only stops a script filling the sessions table.
+const startLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  keyGenerator: req => ipKey(req.ip),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: (req, res) => backToSite(res, 'failed'),  // a browser navigation, so send them back instead of showing JSON
+});
+
 // GET /auth/google/start
-oauthRouter.get('/:provider/start', (req, res) => {
+oauthRouter.get('/:provider/start', startLimiter, (req, res) => {
   const name = req.params.provider;
   if (!enabled(name)) return res.status(404).json({ error: 'That sign-in option is not available' });
   const provider = PROVIDERS[name];
@@ -55,6 +68,9 @@ oauthRouter.get('/:provider/start', (req, res) => {
   const verifier = random();
   const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
   req.session.oauth = { name, state, verifier, startedAt: Date.now() };
+  // The callback only accepts this for 10 minutes, so don't keep a signed-out visitor's session row for 30 days.
+  // The callback makes a fresh session with the normal 30 days.
+  if (!req.session.userId) req.session.cookie.maxAge = 10 * 60 * 1000;
 
   const url = new URL(provider.authorizeUrl);
   url.search = new URLSearchParams({
