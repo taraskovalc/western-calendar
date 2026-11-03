@@ -42,8 +42,8 @@ oauthRouter.get('/providers', (req, res) => {
 });
 
 // Sends the browser back to Slotted, with a short reason if something failed.
-const backToSite = (res, error) =>
-  res.redirect(error ? `${SITE_URL}/?signin_error=${encodeURIComponent(error)}#welcome` : `${SITE_URL}/?signed_in=1#app`);
+const backToSite = (res, error, linksOff) =>
+  res.redirect(error ? `${SITE_URL}/?signin_error=${encodeURIComponent(error)}#welcome` : `${SITE_URL}/?signed_in=1${linksOff ? '&links_off=1' : ''}#app`);
 
 // GET /auth/google/start
 oauthRouter.get('/:provider/start', (req, res) => {
@@ -111,27 +111,29 @@ oauthRouter.get('/:provider/callback', async (req, res) => {
     if (!infoResponse.ok || !info.sub) throw new Error(`userinfo: ${JSON.stringify(info).slice(0, 200)}`);
     const email = typeof info.email === 'string' ? info.email.trim().toLowerCase() : null;
 
-    const userId = await findOrCreateUser(name, info.sub, email, provider.trustEmail(info), info.name);
-    if (userId === 'unverified') return backToSite(res, 'unverified_email');
-    if (!userId) return backToSite(res, 'no_email');
+    const found = await findOrCreateUser(name, info.sub, email, provider.trustEmail(info), info.name);
+    if (found === 'unverified') return backToSite(res, 'unverified_email');
+    if (!found) return backToSite(res, 'no_email');
 
+    const { rows } = await pool.query('SELECT session_version FROM users WHERE id = $1', [found.userId]);
     await regenerateSession(req);
-    req.session.userId = userId;
-    backToSite(res);
+    req.session.userId = found.userId;
+    req.session.sessionVersion = rows[0].session_version;
+    backToSite(res, null, found.linksOff);
   } catch (err) {
     console.error(`${name} sign-in failed:`, err.message);
     backToSite(res, 'failed');
   }
 });
 
-// Returns the Slotted user ID for this Google account, creating or
-// linking an account when needed. Returns null when it can't safely do either.
+// Returns { userId, linksOff } for this Google account, creating or linking an
+// account when needed. Returns null (or 'unverified') when it can't safely do either.
 async function findOrCreateUser(provider, providerUserId, email, emailTrusted, name) {
   const linked = await pool.query(
     'SELECT user_id FROM oauth_accounts WHERE provider = $1 AND provider_user_id = $2',
     [provider, providerUserId],
   );
-  if (linked.rows[0]) return linked.rows[0].user_id;
+  if (linked.rows[0]) return { userId: linked.rows[0].user_id };
   if (!email) return null;
   // Google says it hasn't confirmed this person owns the email: don't create or
   // link an account with it, or they could claim someone else's address.
@@ -142,16 +144,22 @@ async function findOrCreateUser(provider, providerUserId, email, emailTrusted, n
     await client.query('BEGIN');
     const existing = await client.query('SELECT id FROM users WHERE email = $1', [email]);
     let userId = existing.rows[0]?.id;
+    let linksOff = false;
     if (userId) {
       // Linking Google to an account that already uses this (Google-verified)
       // email. Someone else could have registered this email earlier with a
       // password they know, so lock them out: remove the password, any reset
-      // links, and every signed-in session. The real owner just proved they own
-      // the email through Google; they can set a password again with "Forgot
-      // your password?" if they want one.
-      await client.query('UPDATE users SET password_hash = NULL WHERE id = $1', [userId]);
+      // links, calendar links, and every signed-in session. The real owner just
+      // proved they own the email through Google; they can set a password again
+      // with "Forgot your password?" if they want one.
+      await client.query('UPDATE users SET password_hash = NULL, session_version = session_version + 1 WHERE id = $1', [userId]);
       await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
       await client.query(`DELETE FROM sessions WHERE sess->>'userId' = $1`, [userId]);
+      const feeds = await client.query(
+        'DELETE FROM calendar_feeds WHERE schedule_id IN (SELECT id FROM schedules WHERE user_id = $1)',
+        [userId],
+      );
+      linksOff = feeds.rowCount > 0;
     } else {
       const created = await client.query(
         'INSERT INTO users (email, display_name) VALUES ($1, $2) RETURNING id',
@@ -164,7 +172,7 @@ async function findOrCreateUser(provider, providerUserId, email, emailTrusted, n
       [userId, provider, providerUserId],
     );
     await client.query('COMMIT');
-    return userId;
+    return { userId, linksOff };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     throw err;

@@ -1,5 +1,6 @@
 // Accounts: register, log in, log out, and "who am I?".
 import crypto from 'node:crypto';
+import net from 'node:net';
 import express from 'express';
 import argon2 from 'argon2';
 import { rateLimit } from 'express-rate-limit';
@@ -7,7 +8,7 @@ import { z } from 'zod';
 import { pool } from '../db.js';
 import { validate } from '../validate.js';
 import { regenerateSession, destroySession } from '../session.js';
-import { requireAuth } from '../require-auth.js';
+import { requireAuth, sessionIsCurrent } from '../require-auth.js';
 import { mailEnabled, sendMail } from '../mail.js';
 
 export const authRouter = express.Router();
@@ -27,14 +28,26 @@ export const loginSchema = z.object({
 });
 
 /* ---------- rate limits ---------- */
-// Max 5 FAILED logins per 15 minutes for one email from one address. Successful
+// IPv4 stays exact; IPv6 is grouped by /56 (usually one customer), so rotating addresses inside it gives no new tries.
+export function ipKey(ip) {
+  if (!net.isIPv6(ip ?? '')) return ip;
+  // The URL parser normalizes the address (lowercase, hex only, at most one "::"), which makes it easy to expand.
+  const [head, tail] = new URL(`http://[${ip.split('%')[0]}]`).hostname.slice(1, -1).split('::');
+  const h = head ? head.split(':') : [], t = tail ? tail.split(':') : [];
+  const groups = tail === undefined ? h : [...h, ...Array(8 - h.length - t.length).fill('0'), ...t];
+  const n = groups.reduce((acc, g) => acc << 16n | BigInt(`0x${g}`), 0n);
+  if (n >> 32n === 0xffffn) return [24n, 16n, 8n, 0n].map(s => n >> s & 255n).join('.');  // ::ffff:a.b.c.d is an IPv4 client
+  return `${(n >> 72n).toString(16)}/56`;
+}
+
+// Max 5 FAILED logins per 15 minutes for one email from one address (IPv6: one /56). Successful
 // ones don't count. Counting per email too means students sharing a campus
 // network don't lock each other out.
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,
   skipSuccessfulRequests: true,
-  keyGenerator: req => `${req.ip}|${String(req.body?.email ?? '').trim().toLowerCase()}`,
+  keyGenerator: req => `${ipKey(req.ip)}|${String(req.body?.email ?? '').trim().toLowerCase()}`,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many failed attempts. Try again in 15 minutes.' },
@@ -79,7 +92,7 @@ authRouter.post('/register', registerLimiter, async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO users (email, password_hash, display_name, theme)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, email, display_name, theme, true AS has_password`,
+       RETURNING id, email, display_name, theme, true AS has_password, session_version`,
       [data.email, passwordHash, data.displayName ?? null, data.theme ?? 'auto'],
     );
     user = rows[0];
@@ -92,6 +105,7 @@ authRouter.post('/register', registerLimiter, async (req, res) => {
 
   await regenerateSession(req);  // fresh session ID (prevents session fixation)
   req.session.userId = user.id;
+  req.session.sessionVersion = user.session_version;
   res.status(201).json({ user: publicUser(user) });
 });
 
@@ -101,7 +115,7 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
   if (errors) return res.status(400).json({ errors });
 
   const { rows } = await pool.query(
-    'SELECT id, email, display_name, theme, password_hash FROM users WHERE email = $1',
+    'SELECT id, email, display_name, theme, password_hash, session_version FROM users WHERE email = $1',
     [data.email],
   );
   const user = rows[0];
@@ -114,6 +128,7 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
 
   await regenerateSession(req);
   req.session.userId = user.id;
+  req.session.sessionVersion = user.session_version;
   res.json({ user: publicUser(user) });
 });
 
@@ -129,8 +144,8 @@ authRouter.get('/me', async (req, res) => {
   const userId = req.session?.userId;
   if (!userId) return res.json({ user: null });
 
-  const { rows } = await pool.query('SELECT id, email, display_name, theme, (password_hash IS NOT NULL) AS has_password FROM users WHERE id = $1', [userId]);
-  if (!rows[0]) {  // the account was deleted while this session was still around
+  const { rows } = await pool.query('SELECT id, email, display_name, theme, (password_hash IS NOT NULL) AS has_password, session_version FROM users WHERE id = $1', [userId]);
+  if (!sessionIsCurrent(req.session, rows[0])) {  // the account was deleted, or signed out everywhere, while this session was still around
     await destroySession(req);
     return res.json({ user: null });
   }
@@ -246,6 +261,23 @@ export const resetSchema = z.object({
   token: z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'This reset link is not valid'),
   password: z.string().min(10, 'Password must be at least 10 characters').max(200),
 });
+export const resetCheckSchema = resetSchema.pick({ token: true });
+const RESET_EXPIRED = 'This reset link has expired or was already used. Ask for a new one.';
+
+// POST /auth/reset/check   { token }  ->  { email } of the account the link is for
+// Shown before a password is typed, so a link made for someone else's account can't quietly sign you into it.
+authRouter.post('/reset/check', resetLimiter, async (req, res) => {
+  const { data, errors } = validate(resetCheckSchema, req.body);
+  if (errors) return res.status(400).json({ errors });
+
+  const { rows } = await pool.query(
+    `SELECT u.email FROM password_resets r JOIN users u ON u.id = r.user_id
+      WHERE r.token_hash = $1 AND r.used_at IS NULL AND r.expires_at > now()`,
+    [sha256(data.token)],
+  );
+  if (!rows[0]) return res.status(400).json({ error: RESET_EXPIRED });
+  res.json({ email: rows[0].email });
+});
 
 authRouter.post('/reset', resetLimiter, async (req, res) => {
   const { data, errors } = validate(resetSchema, req.body);
@@ -260,17 +292,22 @@ authRouter.post('/reset', resetLimiter, async (req, res) => {
     [sha256(data.token)],
   );
   if (!rows[0]) {
-    return res.status(400).json({ error: 'This reset link has expired or was already used. Ask for a new one.' });
+    return res.status(400).json({ error: RESET_EXPIRED });
   }
   const userId = rows[0].user_id;
   const { rows: users } = await pool.query(
-    `UPDATE users SET password_hash = $1 WHERE id = $2
-     RETURNING id, email, display_name, theme, true AS has_password`,
+    `UPDATE users SET password_hash = $1, session_version = session_version + 1 WHERE id = $2
+     RETURNING id, email, display_name, theme, true AS has_password, session_version`,
     [await argon2.hash(data.password), userId],
   );
-  // Sign out everywhere else: whoever knew the old password is now locked out.
+  // Sign out everywhere else and turn off calendar links: whoever knew the old password is now locked out.
   await pool.query(`DELETE FROM sessions WHERE sess->>'userId' = $1`, [userId]);
+  const feeds = await pool.query(
+    'DELETE FROM calendar_feeds WHERE schedule_id IN (SELECT id FROM schedules WHERE user_id = $1)',
+    [userId],
+  );
   await regenerateSession(req);
   req.session.userId = userId;
-  res.json({ user: publicUser(users[0]) });
+  req.session.sessionVersion = users[0].session_version;
+  res.json({ user: publicUser(users[0]), linksOff: feeds.rowCount > 0 });
 });

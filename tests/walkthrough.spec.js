@@ -83,3 +83,22 @@ test('a schedule kept through the Google sign-in trip shows its note', async ({ 
   await expect(page.locator('#extension-note')).not.toContainText('<b>');
   expect(errors).toEqual([]);
 });
+
+test('a reset link shows which account it is for before asking for a password', async ({ page, baseURL }) => {
+  const errors = await localSiteWithCsp(page, baseURL);
+  let reply = { json: { email: 'owner@example.com' } };
+  const headers = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' };
+  await page.route('http://localhost:3000/auth/reset/check', route => route.fulfill({ headers, ...reply }));
+  const password = page.locator('#reset-form input[name="password"]');
+
+  await page.goto(`/web/index.html?reset=${'a'.repeat(43)}`);
+  await expect(page.locator('#reset-email')).toHaveText('owner@example.com');
+  await expect(password).toBeVisible();
+
+  reply = { status: 400, json: { error: 'This reset link has expired or was already used. Ask for a new one.' } };
+  await page.goto(`/web/index.html?reset=${'b'.repeat(43)}`);
+  await expect(page.locator('#reset-form .form-status')).toHaveText(/expired or was already used/);
+  await expect(password).toBeHidden();
+  await expect(page.locator('#reset-for')).toBeHidden();
+  expect(errors).toEqual([]);
+});

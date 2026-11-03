@@ -6,7 +6,7 @@ import fs from 'node:fs';
 
 process.env.SESSION_SECRET ??= 'test-only-not-a-real-secret';  // session.js refuses to load without one
 const { validate } = await import('../src/validate.js');
-const { registerSchema, loginSchema, settingsSchema, resetSchema } = await import('../src/routes/auth.js');
+const { registerSchema, loginSchema, settingsSchema, resetSchema, resetCheckSchema } = await import('../src/routes/auth.js');
 const { createSchema, updateSchema, idSchema } = await import('../src/routes/schedules.js');
 const { reportSchema } = await import('../src/routes/report.js');
 
@@ -48,6 +48,12 @@ test('reset: token must be 43 URL-safe characters', () => {
   assert.ok(validate(resetSchema, { token: 'a'.repeat(43), password }).data);
   assert.deepEqual(messages(validate(resetSchema, { token: 'a'.repeat(42), password })), ['This reset link is not valid']);
   assert.ok(validate(resetSchema, { token: `${'a'.repeat(42)}/`, password }).errors);
+});
+
+test('reset check: same token rule, no password needed', () => {
+  assert.deepEqual(validate(resetCheckSchema, { token: 'a'.repeat(43) }).data, { token: 'a'.repeat(43) });
+  assert.deepEqual(messages(validate(resetCheckSchema, { token: 'a'.repeat(42) })), ['This reset link is not valid']);
+  assert.ok(validate(resetCheckSchema, {}).errors);
 });
 
 /* ---------- saved schedules ---------- */

@@ -1702,19 +1702,33 @@ $('#forgot-form').addEventListener('submit', async event => {
   }
 });
 
-function openResetDialog(token) {
+// Shown after a password reset or after Google is linked to an email account, when that turned off calendar links.
+const LINKS_OFF = "For your security, your old calendar links no longer work, so nobody else can use them to see your schedule. Your calendar app will stop updating: open a saved schedule, get a new calendar link, and add it to your calendar app again.";
+
+async function openResetDialog(token) {
   const form = $('#reset-form');
   form.dataset.token = token;
+  formStatus(form, 'Checking the link…');
   $('#dialog-reset').showModal();
+  try {
+    // Show whose account this is before a password is typed: the link may have been made by someone else for their own account.
+    const { email } = await api('/auth/reset/check', { method: 'POST', body: { token } });
+    $('#reset-email').textContent = email;
+    for (const el of [$('#reset-for'), ...form.querySelectorAll('label, button')]) el.hidden = false;
+    formStatus(form, '');
+  } catch (err) {
+    formStatus(form, err.message);
+  }
 }
 $('#reset-form').addEventListener('submit', async event => {
   event.preventDefault();
   const form = event.currentTarget;
   formStatus(form, 'Saving…');
   try {
-    const { user } = await api('/auth/reset', { method: 'POST', body: { token: form.dataset.token, password: form.elements.password.value } });
+    const { user, linksOff } = await api('/auth/reset', { method: 'POST', body: { token: form.dataset.token, password: form.elements.password.value } });
     $('#dialog-reset').close();
     signedIn(user);
+    if (linksOff) welcomeMessage(LINKS_OFF);
     show('welcome');
   } catch (err) {
     formStatus(form, err.message);
@@ -1729,6 +1743,7 @@ $('#reset-form').addEventListener('submit', async event => {
 const params = new URLSearchParams(location.search);
 const resetToken = params.get('reset');
 const returnedFromSignIn = params.get('signed_in') === '1';
+const linksOffOnReturn = params.get('links_off') === '1';
 const signInError = params.get('signin_error');
 if (location.search) history.replaceState(null, '', location.pathname + location.hash);
 
@@ -1760,6 +1775,7 @@ if (signInError) {
 api('/auth/me').then(({ user }) => {
   if (user) {
     signedIn(user);
+    if (linksOffOnReturn) welcomeMessage(LINKS_OFF);
     state.started = returnedFromSignIn || state.started;
     if (returnedFromSignIn) show('welcome');
   } else {
