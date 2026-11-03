@@ -168,9 +168,9 @@ showed that an extension can read the schedule straight from the open page.
 
 ## License
 
-**© 2026 Taras Koval. All rights reserved.** The code is public so it can be read and reviewed. You
-may not copy, modify, reuse or redistribute any part of it without written permission. See
-[LICENSE](LICENSE).
+**© 2026 Taras Koval. All rights reserved.** The code is public so it can be read and reviewed.
+Anyone can use the website and the Chrome Web Store extension. You may not copy, modify, reuse or
+redistribute any part of the code without written permission. See [LICENSE](LICENSE).
 
 ---
 

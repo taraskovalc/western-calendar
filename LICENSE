@@ -1,14 +1,52 @@
-Copyright (c) 2026 Taras Koval. All rights reserved.
+Copyright © 2026 Taras Koval. All rights reserved.
 
-This repository is public so that its source can be viewed. Viewing it does
-not grant any licence to use it.
+This applies to everything in this repository (the Slotted website, API and
+browser extension, and their code, design, text and graphics, including the
+Slotted name and logo), unless a file says otherwise.
 
-You may NOT copy, modify, reuse, redistribute, publish, sell, or host this
-project's code, design, text, or graphics, in whole or in part, or use it to
-build another product, without prior written permission from Taras Koval.
+This repository is public so the code can be read and reviewed. It is not
+open source, and no licence is granted except as written below.
 
-The only exception is what GitHub's Terms of Service already allow on
-GitHub itself (viewing the repository and forking it there). That gives no
-other rights.
+WHAT YOU MAY DO
+
+1. Use the Slotted website (slotted.taraskoval.ca) and install the Slotted
+   extension from the Chrome Web Store, for your own use.
+2. View this repository and fork it on GitHub, as GitHub's Terms of Service
+   allow. That gives no other rights.
+3. Download and run the code on your own computer only to review it or to
+   find and report a bug or security problem, without sharing or hosting it.
+
+WHAT YOU MAY NOT DO WITHOUT WRITTEN PERMISSION FROM TARAS KOVAL
+
+1. Copy, modify, reuse, redistribute, publish, sell or host this project or
+   any part of it.
+2. Use it to build another product or service.
+3. Use the Slotted name or logo for anything else, or in a way that suggests
+   Taras Koval made or endorses something.
+4. Use it as training data for machine learning or AI models.
+
+OTHER PEOPLE'S WORK
+
+Third-party software (such as the packages listed in package.json files) and
+fonts keep their own licences. This licence does not cover them. Western
+University and DraftMySchedule belong to their owners; Slotted is not
+affiliated with or endorsed by Western University.
+
+CONTRIBUTIONS
+
+Bug reports and suggestions are welcome. If you send code or other material
+(for example a pull request), you confirm it is your own work and give Taras
+Koval permission to use, change and relicense it in any way, without payment.
+
+NO WARRANTY
+
+This project is provided "as is", without warranty of any kind. To the extent
+the law allows, Taras Koval is not liable for any loss or damage from using
+it, including missed classes, exams or deadlines. Always check important
+dates against Western University's official academic calendar.
+
+Nothing in this licence limits what copyright law already allows, such as
+fair dealing under Canada's Copyright Act. This licence is governed by the
+laws of Ontario and the federal laws of Canada that apply there.
 
 To ask for permission, contact slotted@taraskoval.ca.
