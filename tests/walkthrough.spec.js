@@ -74,3 +74,12 @@ test('a message from the Chrome extension shows its note', async ({ page, baseUR
   await expect(page.locator('#extension-note b')).toHaveText('Send to Slotted');
   expect(errors).toEqual([]);
 });
+
+test('a schedule kept through the Google sign-in trip shows its note', async ({ page, baseURL }) => {
+  const errors = await localSiteWithCsp(page, baseURL);
+  await page.addInitScript(() => sessionStorage.setItem('slotted-pending-schedule', '<p>made-up schedule</p>'));
+  await page.goto('/web/index.html');
+  await expect(page.locator('#extension-note b')).toHaveText('Your schedule from DraftMySchedule is still here.');
+  await expect(page.locator('#extension-note')).not.toContainText('<b>');
+  expect(errors).toEqual([]);
+});

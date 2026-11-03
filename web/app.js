@@ -180,7 +180,7 @@ try {
   if (saved) {
     sessionStorage.removeItem(PENDING_KEY);
     fromExtension = saved;
-    extensionNote('<b>Your schedule from DraftMySchedule is still here.</b> Choose your calendar app, and your classes are already filled in.');
+    extensionNote([h('b', {}, 'Your schedule from DraftMySchedule is still here.'), ' Choose your calendar app, and your classes are already filled in.']);
     // Past the cover, once the rest of the page has set itself up.
     setTimeout(() => { if (!$('#view-cover').hidden) show('welcome'); });
   }
