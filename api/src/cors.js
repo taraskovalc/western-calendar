@@ -10,6 +10,12 @@ const allowed = new Set(
 
 export function cors(req, res, next) {
   const origin = req.headers.origin;
+  // Browsers send Origin on every POST/PATCH/DELETE. Refuse ones started by any other
+  // site (including other *.taraskoval.ca sites, which SameSite cookies don't block).
+  // No Origin = not a browser page (curl, calendar apps), which can't use someone's cookie.
+  if (origin && !allowed.has(origin) && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return res.status(403).json({ error: 'Requests from other websites are not allowed' });
+  }
   if (origin && allowed.has(origin)) {
     res.set({
       'Access-Control-Allow-Origin': origin,

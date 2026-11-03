@@ -51,7 +51,7 @@ export function buildReportEmail(r, signedIn, now = new Date()) {
     `Signed in: ${signedIn ? 'Yes' : 'No'}`,
     `Sent: ${when(now)}`,
     ...(r.schedule ? ['', r.schedule.read
-      ? `Schedule file: Slotted read ${r.schedule.rows.length} meeting times${r.schedule.year ? ` (${r.schedule.year})` : ''}.`
+      ? `Schedule file: Slotted read ${(r.schedule.rows ?? []).length} meeting times${r.schedule.year ? ` (${r.schedule.year})` : ''}.`
       : `Schedule file: Slotted couldn't read it: ${r.schedule.error}`,
     ...(r.schedule.rows ?? []).map(x => `  ${x.course} ${x.type} ${x.section}  ${x.days}  ${x.time}  ${x.room}`.trimEnd()),
     ...(r.schedule.notes ?? []).map(n => `  Note: ${n}`),
@@ -73,7 +73,7 @@ export function buildReportEmail(r, signedIn, now = new Date()) {
   if (r.schedule) {
     const s = r.schedule;
     const banner = s.read
-      ? `<div style="padding:10px 14px;border-radius:8px;background:#e8f3ec;color:${C.good};font-size:14px;font-weight:600">Slotted read ${new Set(s.rows.map(x => x.course + x.type)).size} classes from their file${s.year ? ` (${esc(s.year)})` : ''}.</div>`
+      ? `<div style="padding:10px 14px;border-radius:8px;background:#e8f3ec;color:${C.good};font-size:14px;font-weight:600">Slotted read ${new Set((s.rows ?? []).map(x => x.course + x.type)).size} classes from their file${s.year ? ` (${esc(s.year)})` : ''}.</div>`
       : `<div style="padding:10px 14px;border-radius:8px;background:#f8e6e3;color:${C.bad};font-size:14px"><b>Slotted couldn't read their file:</b> ${esc(s.error)}</div>`;
     const cell = (v, extra = '') => `<td style="padding:6px 8px;border-top:1px solid ${C.line};font-size:13px;color:${C.ink};${extra}">${esc(v)}</td>`;
     const table = s.rows?.length ? `

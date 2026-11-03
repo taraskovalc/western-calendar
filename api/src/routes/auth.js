@@ -197,10 +197,20 @@ const SITE_URL = (process.env.SITE_URL || 'https://slotted.taraskoval.ca').repla
 const RESET_MINUTES = 60;
 const sha256 = text => crypto.createHash('sha256').update(text).digest('hex');
 
-// Max 10 reset emails per hour from one address (stops someone flooding inboxes).
-const forgotLimiter = rateLimit({
+// Max 10 reset emails per hour from one address (IPv6: one /56), and 5 per hour
+// to one email from anywhere (stops someone flooding an inbox or the email quota).
+export const forgotLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 10,
+  keyGenerator: req => ipKey(req.ip),
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many reset requests. Try again later.' },
+});
+export const forgotEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  keyGenerator: req => `email|${String(req.body?.email ?? '').trim().toLowerCase()}`,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many reset requests. Try again later.' },
@@ -220,7 +230,7 @@ const resetLimiter = rateLimit({
 // POST /auth/forgot   { email }
 // Always answers the same way, whether or not the email has an account, so
 // this form can't be used to find out who uses Slotted.
-authRouter.post('/forgot', forgotLimiter, async (req, res) => {
+authRouter.post('/forgot', forgotLimiter, forgotEmailLimiter, async (req, res) => {
   if (!mailEnabled) {
     return res.status(503).json({ error: "Password reset emails aren't set up yet. Please try again later." });
   }

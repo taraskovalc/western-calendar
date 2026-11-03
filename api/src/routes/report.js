@@ -9,6 +9,7 @@ import express from 'express';
 import { z } from 'zod';
 import { rateLimit } from 'express-rate-limit';
 import { validate } from '../validate.js';
+import { ipKey } from './auth.js';
 import { mailEnabled, sendMail } from '../mail.js';
 import { STEPS, buildReportEmail } from '../report-email.js';
 
@@ -16,10 +17,11 @@ export const reportRouter = express.Router();
 
 const REPORT_EMAIL = process.env.REPORT_EMAIL;
 
-// Max 5 reports per hour from one address (stops spam).
-const reportLimiter = rateLimit({
+// Max 5 reports per hour from one address (IPv6: one /56) (stops spam).
+export const reportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 5,
+  keyGenerator: req => ipKey(req.ip),
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many reports from here. Please try again in an hour.' },
