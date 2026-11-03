@@ -2,12 +2,11 @@
 // Runs as the light, dark and phone projects in playwright.config.js.
 import { test, expect } from '@playwright/test';
 import { schedulePage } from './schedule-page.js';
+import { localSiteWithCsp } from './csp.js';
 
 test('guest makes a calendar file', async ({ page, baseURL }, testInfo) => {
-  // Only the local site loads: no API, fonts or analytics, so the API counts as down.
-  await page.route('**/*', route => (route.request().url().startsWith(baseURL) ? route.continue() : route.abort()));
-  const errors = [];
-  page.on('pageerror', err => errors.push(err.message));
+  // Only the local site loads (so the API counts as down), under the site's CSP.
+  const errors = await localSiteWithCsp(page, baseURL);
 
   // Every step must fit the screen: no sideways scrolling, on a phone too.
   const step = async (view, label) => {
@@ -46,5 +45,15 @@ test('guest makes a calendar file', async ({ page, baseURL }, testInfo) => {
   expect(ics).toContain('SUMMARY:MOCK 2000B');
   await expect(page.locator('#done-title')).toBeVisible();
 
+  expect(errors).toEqual([]);
+});
+
+test('privacy and report pages load under the CSP', async ({ page, baseURL }) => {
+  const errors = await localSiteWithCsp(page, baseURL);
+  for (const path of ['/web/privacy.html', '/web/report.html']) {
+    await page.goto(path);
+    await expect(page.locator('h1')).toBeVisible();
+  }
+  await expect(page.locator('form.report-form')).toBeVisible();
   expect(errors).toEqual([]);
 });

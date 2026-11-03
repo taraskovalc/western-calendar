@@ -40,7 +40,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="style.css?v=20261106">
+  <link rel="stylesheet" href="style.css?v=20261108">
   <script type="module" src="app.js?v=20261107"></script>
 </head>
 <body>
@@ -144,7 +144,7 @@
               <div class="mini-panel">
                 <p class="mini-tag">your calendar app</p>
                 <div class="mini-daynames"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span></div>
-                <div class="mini-week"><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:66px;--c:var(--c2);--e:var(--e2)">BIOLOGY</span></div><div class="mini-day"><span style="top:37px;--c:var(--c1);--e:var(--e1)">ENGLISH</span><span style="top:96px;--c:var(--c4);--e:var(--e4)">HISTORY</span></div><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:66px;--c:var(--c2);--e:var(--e2)">BIOLOGY</span></div><div class="mini-day"><span style="top:37px;--c:var(--c1);--e:var(--e1)">ENGLISH</span><span style="top:96px;--c:var(--c4);--e:var(--e4)">HISTORY</span></div><div class="mini-day"><span style="top:7px;--c:var(--c3);--e:var(--e3)">MATH</span><span style="top:52px;--c:var(--c0);--e:var(--e0)">CHEM</span></div></div>
+                <div class="mini-week"><div class="mini-day"><span class="mini-math">MATH</span><span class="mini-bio">BIOLOGY</span></div><div class="mini-day"><span class="mini-eng">ENGLISH</span><span class="mini-hist">HISTORY</span></div><div class="mini-day"><span class="mini-math">MATH</span><span class="mini-bio">BIOLOGY</span></div><div class="mini-day"><span class="mini-eng">ENGLISH</span><span class="mini-hist">HISTORY</span></div><div class="mini-day"><span class="mini-math">MATH</span><span class="mini-chem">CHEM</span></div></div>
               </div>
             </div>
             <p class="intro-why">DraftMySchedule can't send your timetable to a calendar app. <b>Slotted turns it into calendar events for the whole term</b> and walks you through every step, so you know exactly what you're doing. Free, no account needed, nothing to install.</p>
@@ -440,15 +440,15 @@
                 <legend>Calendar colour</legend>
                 <div class="swatches" id="swatches" hidden>
                   <label class="swatch swatch-auto"><input type="radio" name="calcolor" value="" checked><span>App chooses</span></label>
-                  <label class="swatch" style="--c:#C9562E"><input type="radio" name="calcolor" value="#C9562E"><span class="visually-hidden">Terracotta</span></label>
-                  <label class="swatch" style="--c:#D93B3B"><input type="radio" name="calcolor" value="#D93B3B"><span class="visually-hidden">Red</span></label>
-                  <label class="swatch" style="--c:#F08C1A"><input type="radio" name="calcolor" value="#F08C1A"><span class="visually-hidden">Orange</span></label>
-                  <label class="swatch" style="--c:#E3B008"><input type="radio" name="calcolor" value="#E3B008"><span class="visually-hidden">Yellow</span></label>
-                  <label class="swatch" style="--c:#3F8A55"><input type="radio" name="calcolor" value="#3F8A55"><span class="visually-hidden">Green</span></label>
-                  <label class="swatch" style="--c:#1F9E9A"><input type="radio" name="calcolor" value="#1F9E9A"><span class="visually-hidden">Teal</span></label>
-                  <label class="swatch" style="--c:#3478F6"><input type="radio" name="calcolor" value="#3478F6"><span class="visually-hidden">Blue</span></label>
-                  <label class="swatch" style="--c:#8B5CF6"><input type="radio" name="calcolor" value="#8B5CF6"><span class="visually-hidden">Purple</span></label>
-                  <label class="swatch" style="--c:#E0569B"><input type="radio" name="calcolor" value="#E0569B"><span class="visually-hidden">Pink</span></label>
+                  <label class="swatch"><input type="radio" name="calcolor" value="#C9562E"><span class="visually-hidden">Terracotta</span></label>
+                  <label class="swatch"><input type="radio" name="calcolor" value="#D93B3B"><span class="visually-hidden">Red</span></label>
+                  <label class="swatch"><input type="radio" name="calcolor" value="#F08C1A"><span class="visually-hidden">Orange</span></label>
+                  <label class="swatch"><input type="radio" name="calcolor" value="#E3B008"><span class="visually-hidden">Yellow</span></label>
+                  <label class="swatch"><input type="radio" name="calcolor" value="#3F8A55"><span class="visually-hidden">Green</span></label>
+                  <label class="swatch"><input type="radio" name="calcolor" value="#1F9E9A"><span class="visually-hidden">Teal</span></label>
+                  <label class="swatch"><input type="radio" name="calcolor" value="#3478F6"><span class="visually-hidden">Blue</span></label>
+                  <label class="swatch"><input type="radio" name="calcolor" value="#8B5CF6"><span class="visually-hidden">Purple</span></label>
+                  <label class="swatch"><input type="radio" name="calcolor" value="#E0569B"><span class="visually-hidden">Pink</span></label>
                 </div>
                 <p class="option-note color-note" id="color-note-apple-link" hidden>This colour only works with the <b>calendar link</b>: Apple Calendar can use it when you add the link. Downloading a file instead? Pick the colour in Calendar after adding it (see below).</p>
                 <p class="option-note color-note" id="color-note-apple-file" hidden>Choosing a colour here needs the <b>calendar link</b>, which comes with a free account. With a downloaded file, you pick the colour in Calendar after adding it (see below).</p>

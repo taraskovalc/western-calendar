@@ -505,6 +505,15 @@ body { background: var(--wood); background-color: var(--desk); }
   content: ''; width: 30px; height: 30px; border-radius: 50%; background: var(--c);
   box-shadow: inset 0 0 0 1.5px rgb(0 0 0 / 15%); transition: transform .15s var(--ease);
 }
+.swatch:has([value="#C9562E"]) { --c: #C9562E; }
+.swatch:has([value="#D93B3B"]) { --c: #D93B3B; }
+.swatch:has([value="#F08C1A"]) { --c: #F08C1A; }
+.swatch:has([value="#E3B008"]) { --c: #E3B008; }
+.swatch:has([value="#3F8A55"]) { --c: #3F8A55; }
+.swatch:has([value="#1F9E9A"]) { --c: #1F9E9A; }
+.swatch:has([value="#3478F6"]) { --c: #3478F6; }
+.swatch:has([value="#8B5CF6"]) { --c: #8B5CF6; }
+.swatch:has([value="#E0569B"]) { --c: #E0569B; }
 .swatch:hover::before { transform: scale(1.08); }
 .swatch:has(input:checked)::before { box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--ink); }
 .swatch-auto span {
@@ -681,6 +690,11 @@ body { background-position: 0 0; }
   position: absolute; left: 2px; right: 2px; height: 16px; padding: 1px 2px; border-radius: 2px;
   border-top: 2px solid var(--e); background: var(--c); font-size: 8.5px; overflow: hidden; white-space: nowrap; color: var(--ink);
 }
+.mini-math { top: 7px; --c: var(--c3); --e: var(--e3); }
+.mini-eng { top: 37px; --c: var(--c1); --e: var(--e1); }
+.mini-chem { top: 52px; --c: var(--c0); --e: var(--e0); }
+.mini-bio { top: 66px; --c: var(--c2); --e: var(--e2); }
+.mini-hist { top: 96px; --c: var(--c4); --e: var(--e4); }
 .intro-why { text-align: center; color: var(--muted); max-width: 52ch; margin: 20px auto 36px; font-size: 15.5px; }
 .intro-why b { color: var(--ink); }
 @media (max-width: 760px) {
