@@ -246,17 +246,23 @@ schedulesRouter.get('/:id/feed', async (req, res) => {
 schedulesRouter.post('/:id/feed', async (req, res) => {
   if (!(await findOwnSchedule(req.params.id, req.userId))) return notFound(res);
   // ON CONFLICT DO NOTHING: if this schedule already has a link, keep it.
+  // FOR SHARE waits for a password reset or Google linking running right now (they
+  // lock the user row), then rechecks session_version, so a revoked session can't make a link.
   const inserted = await pool.query(
-    `INSERT INTO calendar_feeds (schedule_id, token) VALUES ($1, $2)
+    `INSERT INTO calendar_feeds (schedule_id, token)
+     SELECT s.id, $2 FROM schedules s JOIN users u ON u.id = s.user_id
+      WHERE s.id = $1 AND u.id = $3 AND u.session_version = $4
+      FOR SHARE OF u
      ON CONFLICT (schedule_id) DO NOTHING
      RETURNING *`,
-    [req.params.id, newToken()],
+    [req.params.id, newToken(), req.userId, req.session.sessionVersion ?? 0],
   );
   if (inserted.rows[0]) {
     await countToday('calendar_link');  // anonymous daily total
     return res.status(201).json({ feed: toFeed(inserted.rows[0]) });
   }
   const { rows } = await pool.query('SELECT * FROM calendar_feeds WHERE schedule_id = $1', [req.params.id]);
+  if (!rows[0]) return res.status(401).json({ error: 'Please sign in first' });  // session was revoked mid-request
   res.json({ feed: toFeed(rows[0]) });
 });
 
