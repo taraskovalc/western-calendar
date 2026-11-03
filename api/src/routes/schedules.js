@@ -66,7 +66,7 @@ const fields = {
   calendarColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Colour must look like #C9562E').transform(c => c.toUpperCase()).nullable(),
 };
 // Creating: name, year and classes are required; settings have defaults.
-const createSchema = z.object({
+export const createSchema = z.object({
   ...fields,
   name: fields.name.default('My schedule'),
   includeTerms: fields.includeTerms.default('both'),
@@ -76,10 +76,10 @@ const createSchema = z.object({
   calendarColor: fields.calendarColor.default(null),
 }).strict();
 // Updating: every field is optional, but at least one must be sent.
-const updateSchema = z.object(fields).partial().strict()
+export const updateSchema = z.object(fields).partial().strict()
   .refine(body => Object.keys(body).length > 0, 'Send at least one field to change');
 
-const idSchema = z.string().uuid();
+export const idSchema = z.string().uuid();
 
 /* ---------- helpers ---------- */
 

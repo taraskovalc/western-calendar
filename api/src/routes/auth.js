@@ -14,14 +14,14 @@ export const authRouter = express.Router();
 
 /* ---------- what valid input looks like ---------- */
 const email = z.string().trim().toLowerCase().email('Enter a valid email address').max(254);
-const registerSchema = z.object({
+export const registerSchema = z.object({
   email,
   // Long beats complicated: a 10+ character minimum, no forced symbols.
   password: z.string().min(10, 'Password must be at least 10 characters').max(200),
   displayName: z.string().trim().max(60).optional().transform(v => v || undefined),  // blank = no name
   theme: z.enum(['auto', 'light', 'dark']).optional(),
 });
-const loginSchema = z.object({
+export const loginSchema = z.object({
   email,
   password: z.string().min(1, 'Enter your password').max(200),
 });
@@ -164,7 +164,7 @@ authRouter.delete('/account', requireAuth, async (req, res) => {
 });
 
 // PATCH /auth/me   { theme }   ->  save settings for the signed-in user
-const settingsSchema = z.object({ theme: z.enum(['auto', 'light', 'dark']) }).strict();
+export const settingsSchema = z.object({ theme: z.enum(['auto', 'light', 'dark']) }).strict();
 
 authRouter.patch('/me', requireAuth, async (req, res) => {
   const { data, errors } = validate(settingsSchema, req.body);
@@ -242,7 +242,7 @@ authRouter.post('/forgot', forgotLimiter, async (req, res) => {
 });
 
 // POST /auth/reset   { token, password }  ->  sets the new password and signs in
-const resetSchema = z.object({
+export const resetSchema = z.object({
   token: z.string().regex(/^[A-Za-z0-9_-]{43}$/, 'This reset link is not valid'),
   password: z.string().min(10, 'Password must be at least 10 characters').max(200),
 });

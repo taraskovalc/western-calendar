@@ -38,7 +38,7 @@ const scheduleSchema = z.object({
   table: z.string().max(12000).optional(),
 }).strict();
 
-const reportSchema = z.object({
+export const reportSchema = z.object({
   message: z.string().trim().min(10, 'Tell me a little more about what went wrong (at least 10 characters).').max(5000),
   step: z.enum(Object.keys(STEPS)).optional(),
   email: z.union([z.literal(''), z.string().trim().toLowerCase().email('That email address doesn\'t look right').max(254)]).optional(),
